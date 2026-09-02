@@ -36,7 +36,7 @@ Production build: `npm run build` (output in `dist/`, serve statically).
 | F | Eat / use held item |
 | 1 | Alter a held item, or combine both hands |
 | Z / V | Drop left / right item |
-| Tab | Neuronal network |
+| R or Tab | Neuronal network |
 | I / T / M | Knowledge, clan, map panels |
 | C | Call the clan, or intimidate a nearby predator |
 | N | Sleep (at the settlement) |
@@ -106,7 +106,7 @@ distances are reduced until the frame rate is stable.
 Язык интерфейса определяется автоматически по языку браузера и переключается в
 настройках. Управление: WASD — движение, Shift — бег, пробел — прыжок/лазание,
 Q — режим чувств, ЛКМ — взаимодействие/атака, ПКМ — уклонение, F — съесть,
-1 — изменить/соединить предметы, Tab — нейронная сеть, I/T/M — знания/клан/карта,
+1 — изменить/соединить предметы, R или Tab — нейронная сеть, I/T/M — знания/клан/карта,
 C — позвать клан или запугать хищника, N — спать, G — смена поколения, H — помощь.
 
 Запуск: `npm install && npm run dev`, затем откройте http://localhost:5173.
