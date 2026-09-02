@@ -5,6 +5,7 @@ import { Vegetation } from './vegetation';
 import { Sky } from './sky';
 import { Water } from './water';
 import { Rain } from './rain';
+import { placeLandmarks, updateLandmarks, type Landmark } from './landmarks';
 import { AnimalRig, HominidRig, makeItemMesh, mat } from '@/render/models';
 import { SPECIES, SPECIES_LIST } from '@/data/species';
 import { createAnimal, type AnimalData, type AIOutput } from '@/systems/animalAI';
@@ -63,6 +64,7 @@ export class GameWorld {
   readonly settlement = new THREE.Vector3();
   readonly settlementGroup = new THREE.Group();
   readonly lights: THREE.Mesh[] = [];
+  landmarks: Landmark[] = [];
   private itemUid = 0;
   private animalUid = 0;
   readonly rng: Rng;
@@ -109,10 +111,20 @@ export class GameWorld {
     this.buildSettlement();
   }
 
+  private buildLandmarks() {
+    for (const l of this.landmarks) this.scene.remove(l.group);
+    this.landmarks = placeLandmarks(this.terrain, this.seed, this.settlement);
+    for (const l of this.landmarks) {
+      this.veg.clearAround(l.position.x, l.position.z, l.def.id === 'fallen_giant' ? 20 : 12);
+      this.scene.add(l.group);
+    }
+  }
+
   private buildSettlement() {
     this.settlementGroup.clear();
     const s = this.settlement;
     this.veg.clearAround(s.x, s.z, 12);
+    this.buildLandmarks();
     // leaf beds
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
@@ -314,6 +326,7 @@ export class GameWorld {
 
   update(dt: number, time: number, viewer?: THREE.Vector3) {
     this.veg.update(time, dt, viewer);
+    updateLandmarks(this.landmarks, time);
     for (const l of this.lights) {
       l.position.y += Math.sin(time * 3 + l.position.x) * dt * 0.4;
       l.scale.setScalar(1 + Math.sin(time * 5 + l.position.z) * 0.15);

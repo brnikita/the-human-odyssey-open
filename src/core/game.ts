@@ -9,6 +9,7 @@ import { loadSettings, saveSettings, qualityParams, type Settings } from './sett
 import { GameWorld, type AnimalEntity, type HominidEntity, type WorldItem } from '@/world/gameWorld';
 import { WATER_LEVEL, WORLD_SIZE } from '@/world/terrain';
 import { Sky } from '@/world/sky';
+import { LANDMARKS, type LandmarkId } from '@/world/landmarks';
 import { PlayerController, type MoveModifiers } from '@/systems/controller';
 import { Hud, type HudData, type HudMarker } from '@/ui/hud';
 import { Screens } from '@/ui/screens';
@@ -351,7 +352,7 @@ export class Game {
       isClimbing: c.isClimbing,
       isSwimming: c.isSwimming,
       isRaining: this.world!.sky.rain > 0.3,
-      nearFire: this.nearSettlement(10),
+      nearFire: this.nearSettlement(10) || (this.world?.landmarks.some((l) => l.def.id === 'hot_spring' && l.position.distanceTo(this.controller!.position) < 8) ?? false),
     };
   }
 
@@ -377,6 +378,10 @@ export class Game {
   private discover(id: string, name: string, kind: 'item' | 'plant' | 'animal' | 'area' | 'landmark') {
     const r = identify(this.lineage, id);
     this.act('identify');
+    if (r.isNew && kind === 'landmark' && id.startsWith('landmark:')) {
+      this.lineage.neuronalEnergy += 40;
+      this.hud.toast(`Landmark: ${name}. ${LANDMARKS[id.slice(9) as LandmarkId]?.description ?? ''}`, 'discovery');
+    }
     if (r.isNew) {
       this.lineage.neuronalEnergy += r.energy;
       addDopamine(this.player, discoveryDopamine(kind));
@@ -446,6 +451,7 @@ export class Game {
       clan: this.clan, lineage: this.lineage, player: this.player, abilities: this.mods.abilities as Set<string>,
       biomeAt: (x, z) => w.terrain.biomeAt(x, z), heightAt: (x, z) => w.terrain.heightAt(x, z), worldSize: WORLD_SIZE,
       settlement: { x: w.settlement.x, z: w.settlement.z },
+      landmarks: w.landmarks.filter((l) => isKnown(this.lineage, `landmark:${l.def.id}`)).map((l) => ({ x: l.position.x, z: l.position.z, name: l.def.name })),
       animals: w.animals.filter((a) => a.data.alive && isKnown(this.lineage, `animal:${a.data.species}`) && Math.hypot(a.data.position.x - this.controller!.position.x, a.data.position.z - this.controller!.position.z) < 120).map((a) => ({ x: a.data.position.x, z: a.data.position.z, predator: SPECIES[a.data.species].behavior === 'predator' })),
       onSwitch: (id) => { this.panels.close(); this.switchTo(id); },
       onClose: () => this.resume(),
@@ -765,6 +771,10 @@ export class Game {
 
     this.updateHints(dt);
 
+    // Hot spring warms and dries
+    const spring = w.landmarks.find((l) => l.def.id === 'hot_spring');
+    if (spring && hasCondition(p, 'cold') && spring.position.distanceTo(c.position) < 7) { cureCondition(p, 'cold'); this.hud.toast('The warm water drives the cold away.', 'good'); this.act('heal'); }
+
     // Ambient audio
     const biome = w.terrain.biomeAt(c.position.x, c.position.z);
     this.audio.update(dt, { night: this.clock.isNight ? 1 : 0, rain: w.sky.rain, fear: p.fear, inJungle: biome === 'jungle' ? 1 : biome === 'swamp' ? 0.5 : 0, underwater: false, timeScale: this.clock.timeScale });
@@ -854,6 +864,10 @@ export class Game {
       if (Math.abs(pos.x - px) > radius || Math.abs(pos.z - pz) > radius) continue;
       out.push({ uid: h.data.id, kind: 'hominid', defId: h.data.isOutsider ? 'hominid:outsider' : `hominid:${h.data.id}`, position: { x: pos.x, y: pos.y + 1, z: pos.z }, known: !h.data.isOutsider || isKnown(this.lineage, 'hominid:outsider'), noise: 0.3, scent: 0.5 });
     }
+    for (const l of w.landmarks) {
+      if (Math.abs(l.position.x - px) > radius * 1.5 || Math.abs(l.position.z - pz) > radius * 1.5) continue;
+      out.push({ uid: l.uid, kind: 'landmark', defId: `landmark:${l.def.id}`, position: { x: l.position.x, y: l.position.y + 4, z: l.position.z }, known: isKnown(this.lineage, `landmark:${l.def.id}`), noise: l.def.noise, scent: l.def.scent });
+    }
     // water
     for (let a = 0; a < 12; a++) {
       const ang = (a / 12) * Math.PI * 2;
@@ -908,6 +922,7 @@ export class Game {
       case 'animal': return SPECIES[id as keyof typeof SPECIES]?.name ?? id;
       case 'hominid': return id === 'outsider' ? 'Outsider hominid' : findMember(this.clan, id)?.name ?? 'Hominid';
       case 'water': return 'Fresh water';
+      case 'landmark': return LANDMARKS[id as LandmarkId]?.name ?? id;
     }
     return defId;
   }

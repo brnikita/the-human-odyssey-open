@@ -19,6 +19,7 @@ export interface PanelData {
   worldSize: number;
   settlement: { x: number; z: number };
   animals: { x: number; z: number; predator: boolean }[];
+  landmarks: { x: number; z: number; name: string }[];
   onSwitch: (id: string) => void;
   onClose: () => void;
 }
@@ -115,7 +116,7 @@ export class Panels {
 
   private renderMap(body: HTMLElement, d: PanelData) {
     const size = 256;
-    body.innerHTML = `<h2>Map</h2><div class="muted">Explored areas are bright; the unknown is dim. ★ settlement · ● you · ▲ predators (only when known nearby).</div>`;
+    body.innerHTML = `<h2>Map</h2><div class="muted">Explored areas are bright; the unknown is dim. ★ settlement · ● you · ◆ landmarks you identified · ▲ predators (only when known nearby).</div>`;
     const canvas = document.createElement('canvas');
     canvas.width = size; canvas.height = size;
     canvas.className = 'map-canvas';
@@ -153,6 +154,7 @@ export class Panels {
     const toPx = (x: number, z: number) => [((x / d.worldSize) + 0.5) * size, ((z / d.worldSize) + 0.5) * size];
     ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
     for (const a of d.animals) { const [x, y] = toPx(a.x, a.z); ctx.fillStyle = a.predator ? '#ff6b6b' : '#ffe45e'; ctx.fillText(a.predator ? '▲' : '·', x, y + 4); }
+    for (const l of d.landmarks) { const [x, y] = toPx(l.x, l.z); ctx.fillStyle = '#7ad3ff'; ctx.fillText('◆', x, y + 4); ctx.font = '9px sans-serif'; ctx.fillText(l.name, x, y + 14); ctx.font = '12px sans-serif'; }
     const [sx, sy] = toPx(d.settlement.x, d.settlement.z); ctx.fillStyle = '#ffcf6b'; ctx.fillText('★', sx, sy + 4);
     const [px, py] = toPx(d.player.position.x, d.player.position.z); ctx.fillStyle = '#7ad3ff'; ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
   }

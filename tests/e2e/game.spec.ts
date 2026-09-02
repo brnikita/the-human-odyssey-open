@@ -432,4 +432,25 @@ test.describe('The Human Odyssey', () => {
     expect(ctrl.s).toBeCloseTo(1.5);
     expect(ctrl.inv).toBe(true);
   });
+  test('landmarks exist, can be identified and appear on the map', async ({ page }) => {
+    await startGame(page);
+    const r = await run(page, `
+      const lm = g.world.landmarks; if (!lm.length) return { count: 0 };
+      const l = lm[0];
+      api.teleport(l.position.x + 6, l.position.z); api.face(l.position.x, l.position.z); step(5);
+      api.press('intelligence'); step(10);
+      const focus = g.intel.focus?.target.defId ?? null;
+      g.input.mouseButtons[0] = true; step(60); g.input.mouseButtons[0] = false; api.release('intelligence'); step(5);
+      const known = g.lineage.discoveries.filter(d => d.startsWith('landmark:'));
+      g.openPanel('map'); await sleep(100);
+      const mapOpen = !!document.querySelector('.map-canvas');
+      g.resume();
+      return { count: lm.length, ids: lm.map(x => x.def.id), focus, known, mapOpen, energy: g.lineage.neuronalEnergy, dopamine: g.player.dopamine };
+    `) as any;
+    expect(r.count).toBeGreaterThanOrEqual(5);
+    expect(r.focus).toMatch(/^landmark:/);
+    expect(r.known.length).toBe(1);
+    expect(r.energy).toBeGreaterThan(60);
+    expect(r.mapOpen).toBe(true);
+  });
 });

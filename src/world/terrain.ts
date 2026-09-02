@@ -239,9 +239,14 @@ export class Terrain {
 
 function makeDetailTexture(seed: number): THREE.Texture {
   const size = 256;
-  const canvas = document.createElement('canvas');
+  const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  if (!canvas || !ctx) {
+    const tex = new THREE.DataTexture(new Uint8Array([200, 200, 200, 255]), 1, 1);
+    tex.needsUpdate = true;
+    return tex;
+  }
   canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
   const img = ctx.createImageData(size, size);
   const n = new SimplexNoise(seed + 99);
   for (let y = 0; y < size; y++) {
