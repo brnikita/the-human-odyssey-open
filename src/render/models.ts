@@ -1,0 +1,496 @@
+import * as THREE from 'three';
+import type { HominidState, ItemId, AgeStage, SpeciesId } from '@/core/types';
+import { ITEMS } from '@/data/items';
+import { SPECIES } from '@/data/species';
+
+const matCache = new Map<string, THREE.MeshStandardMaterial>();
+export function mat(color: string, opts: Partial<THREE.MeshStandardMaterialParameters> = {}): THREE.MeshStandardMaterial {
+  const key = color + JSON.stringify(opts);
+  let m = matCache.get(key);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, flatShading: true, ...opts });
+    matCache.set(key, m);
+  }
+  return m;
+}
+
+function box(w: number, h: number, d: number, m: THREE.Material): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+function sphere(r: number, m: THREE.Material, seg = 8): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, seg, seg), m);
+  mesh.castShadow = true;
+  return mesh;
+}
+function capsule(r: number, len: number, m: THREE.Material): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 3, 6), m);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+/** A limb: pivot at the top joint; the mesh hangs down along -Y. */
+function limb(r: number, len: number, m: THREE.Material): THREE.Group {
+  const g = new THREE.Group();
+  const mesh = capsule(r, len, m);
+  mesh.position.y = -len / 2;
+  g.add(mesh);
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Hominid rig
+// ---------------------------------------------------------------------------
+
+export class HominidRig {
+  readonly root = new THREE.Group();
+  readonly body = new THREE.Group();
+  private torso: THREE.Mesh;
+  private head: THREE.Group;
+  private armL: THREE.Group; private armR: THREE.Group;
+  private foreL: THREE.Group; private foreR: THREE.Group;
+  private legL: THREE.Group; private legR: THREE.Group;
+  private shinL: THREE.Group; private shinR: THREE.Group;
+  readonly handL = new THREE.Group(); readonly handR = new THREE.Group();
+  readonly back = new THREE.Group();
+  private phase = 0;
+  private t = 0;
+  private lean = 0;
+  private breathe = 0;
+  bipedal = false;
+  scaleFactor = 1;
+  private furMat: THREE.MeshStandardMaterial;
+  private skinMat: THREE.MeshStandardMaterial;
+  private highlight = 0;
+
+  constructor(furColor = '#3a2a1e', skinColor = '#6e5140') {
+    this.furMat = new THREE.MeshStandardMaterial({ color: furColor, roughness: 0.95, flatShading: true });
+    this.skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.8, flatShading: true });
+    const fur = this.furMat, skin = this.skinMat;
+
+    this.torso = capsule(0.28, 0.5, fur);
+    this.torso.rotation.z = 0;
+    this.body.add(this.torso);
+
+    this.head = new THREE.Group();
+    const skull = sphere(0.22, fur, 10);
+    const face = sphere(0.16, skin, 8); face.position.set(0, -0.05, 0.14); face.scale.set(1, 0.85, 0.7);
+    const browL = box(0.08, 0.04, 0.05, fur); browL.position.set(-0.07, 0.05, 0.2);
+    const browR = browL.clone(); browR.position.x = 0.07;
+    const eyeL = sphere(0.035, mat('#111111', { roughness: 0.3 }), 6); eyeL.position.set(-0.07, 0.0, 0.24);
+    const eyeR = eyeL.clone(); eyeR.position.x = 0.07;
+    const earL = sphere(0.05, skin, 6); earL.position.set(-0.22, 0, 0);
+    const earR = earL.clone(); earR.position.x = 0.22;
+    this.head.add(skull, face, browL, browR, eyeL, eyeR, earL, earR);
+    this.head.position.set(0, 0.45, 0.05);
+    this.body.add(this.head);
+
+    this.armL = limb(0.09, 0.42, fur); this.armL.position.set(-0.33, 0.25, 0);
+    this.armR = limb(0.09, 0.42, fur); this.armR.position.set(0.33, 0.25, 0);
+    this.foreL = limb(0.075, 0.4, fur); this.foreL.position.y = -0.42;
+    this.foreR = limb(0.075, 0.4, fur); this.foreR.position.y = -0.42;
+    this.armL.add(this.foreL); this.armR.add(this.foreR);
+    const handMeshL = sphere(0.09, skin, 6); handMeshL.position.y = -0.42;
+    const handMeshR = handMeshL.clone();
+    this.foreL.add(handMeshL); this.foreR.add(handMeshR);
+    this.handL.position.set(0, -0.44, 0.05); this.handR.position.set(0, -0.44, 0.05);
+    this.foreL.add(this.handL); this.foreR.add(this.handR);
+    this.body.add(this.armL, this.armR);
+
+    this.legL = limb(0.1, 0.34, fur); this.legL.position.set(-0.16, -0.3, 0);
+    this.legR = limb(0.1, 0.34, fur); this.legR.position.set(0.16, -0.3, 0);
+    this.shinL = limb(0.08, 0.32, fur); this.shinL.position.y = -0.34;
+    this.shinR = limb(0.08, 0.32, fur); this.shinR.position.y = -0.34;
+    this.legL.add(this.shinL); this.legR.add(this.shinR);
+    const footL = box(0.12, 0.06, 0.24, skin); footL.position.set(0, -0.34, 0.06);
+    const footR = footL.clone();
+    this.shinL.add(footL); this.shinR.add(footR);
+    this.body.add(this.legL, this.legR);
+
+    this.back.position.set(0, 0.35, -0.3);
+    this.body.add(this.back);
+
+    this.root.add(this.body);
+    this.body.position.y = 1.0;
+  }
+
+  setStage(stage: AgeStage) {
+    const s = stage === 'baby' ? 0.4 : stage === 'child' ? 0.65 : stage === 'elder' ? 0.95 : 1;
+    this.scaleFactor = s;
+    this.root.scale.setScalar(s);
+    if (stage === 'elder') this.furMat.color.set('#5a4a3e');
+  }
+
+  setHighlight(v: number) {
+    this.highlight = v;
+    this.furMat.emissive.set('#ffcc66').multiplyScalar(v * 0.5);
+  }
+
+  setColors(fur: string, skin: string) {
+    this.furMat.color.set(fur);
+    this.skinMat.color.set(skin);
+  }
+
+  /**
+   * Procedural animation.
+   * @param speed horizontal speed in units/s
+   * @param climbSpeed vertical climb speed
+   */
+  update(dt: number, state: HominidState, speed: number, climbSpeed = 0, extras: { attackT?: number; dodgeT?: number; grounded?: boolean } = {}) {
+    this.t += dt;
+    const bip = this.bipedal;
+    const stride = bip ? 1.9 : 1.6;
+    this.phase += dt * Math.max(speed, 0) * (bip ? 3.4 : 4.2) / stride;
+    const p = this.phase;
+    const swing = Math.sin(p), swing2 = Math.sin(p + Math.PI);
+    const moving = speed > 0.3;
+    this.breathe = Math.sin(this.t * 2.2) * 0.02;
+
+    // Defaults (idle)
+    let bodyY = bip ? 1.05 : 0.86;
+    let torsoPitch = bip ? 0.1 : 0.85; // radians forward lean
+    let armL = 0, armR = 0, foreL = 0, foreR = 0, legL = 0, legR = 0, shinL = 0, shinR = 0;
+    let headPitch = bip ? 0 : -0.55;
+    let bodyRoll = 0;
+    let bodyYaw = 0;
+
+    switch (state) {
+      case 'idle':
+      case 'eat':
+      case 'drink':
+      case 'groom':
+        if (bip) { armL = 0.15; armR = -0.15; foreL = 0.2; foreR = 0.2; }
+        else { armL = -0.55; armR = -0.55; foreL = 0.1; foreR = 0.1; legL = 0.9; legR = 0.9; shinL = -1.6; shinR = -1.6; bodyY = 0.72; }
+        if (state === 'eat' || state === 'drink') { armR = -1.4; foreR = -1.5; headPitch = state === 'drink' ? -0.9 : -0.3; }
+        if (state === 'groom') { armL = -1.0; foreL = -0.9; armR = -1.1; foreR = -0.8; }
+        bodyY += this.breathe;
+        break;
+      case 'walk':
+      case 'run': {
+        const amp = state === 'run' ? 0.95 : 0.6;
+        if (bip) {
+          legL = swing * amp; legR = swing2 * amp;
+          shinL = Math.max(0, -Math.sin(p - 0.6)) * amp * 1.3; shinR = Math.max(0, -Math.sin(p + Math.PI - 0.6)) * amp * 1.3;
+          armL = swing2 * amp * 0.6; armR = swing * amp * 0.6; foreL = 0.4; foreR = 0.4;
+          torsoPitch = state === 'run' ? 0.35 : 0.12;
+          bodyY = 1.05 + Math.abs(Math.cos(p)) * 0.05;
+        } else {
+          // knuckle-walk: arms act as front legs
+          armL = -0.7 + swing * amp * 0.7; armR = -0.7 + swing2 * amp * 0.7;
+          foreL = -0.1 + Math.max(0, Math.sin(p + 0.8)) * 0.6; foreR = -0.1 + Math.max(0, Math.sin(p + Math.PI + 0.8)) * 0.6;
+          legL = 0.5 + swing2 * amp * 0.8; legR = 0.5 + swing * amp * 0.8;
+          shinL = -1.1 + Math.max(0, Math.sin(p + Math.PI - 0.5)) * 0.9; shinR = -1.1 + Math.max(0, Math.sin(p - 0.5)) * 0.9;
+          bodyY = 0.8 + Math.abs(Math.sin(p)) * (state === 'run' ? 0.12 : 0.05);
+          torsoPitch = state === 'run' ? 1.05 : 0.9;
+          bodyRoll = Math.sin(p) * 0.06;
+        }
+        break;
+      }
+      case 'climb': {
+        const cp = this.t * 5 + climbSpeed;
+        this.phase += dt * Math.abs(climbSpeed) * 3;
+        const q = this.phase;
+        torsoPitch = -0.15; bodyY = 0.95;
+        armL = -2.4 + Math.sin(q) * 0.5; armR = -2.4 + Math.sin(q + Math.PI) * 0.5;
+        foreL = 0.9; foreR = 0.9;
+        legL = 1.1 + Math.sin(q + Math.PI) * 0.6; legR = 1.1 + Math.sin(q) * 0.6;
+        shinL = -1.9; shinR = -1.9;
+        headPitch = 0.4;
+        void cp;
+        break;
+      }
+      case 'jump':
+      case 'fall':
+        torsoPitch = 0.4; bodyY = 1.0;
+        armL = -2.3; armR = -2.3; foreL = 0.4; foreR = 0.4;
+        legL = 0.9; legR = 0.6; shinL = -1.4; shinR = -1.2;
+        break;
+      case 'swim': {
+        const q = this.t * 6;
+        torsoPitch = 1.45; bodyY = 0.35;
+        armL = -1.2 + Math.sin(q) * 1.2; armR = -1.2 + Math.sin(q + Math.PI) * 1.2;
+        foreL = 0.3; foreR = 0.3;
+        legL = Math.sin(q * 1.5) * 0.5; legR = -Math.sin(q * 1.5) * 0.5; shinL = -0.3; shinR = -0.3;
+        headPitch = -0.9;
+        break;
+      }
+      case 'attack': {
+        const a = extras.attackT ?? 0; // 0..1
+        const s = Math.sin(a * Math.PI);
+        torsoPitch = bip ? 0.3 + s * 0.4 : 0.6 + s * 0.4;
+        armR = -2.8 + a * 3.6; foreR = 0.2 + s * 0.3;
+        armL = -0.5; foreL = 0.5;
+        legL = 0.6; legR = 0.3; shinL = -1.2; shinR = -0.8;
+        bodyY = (bip ? 1.05 : 0.85) - s * 0.1;
+        bodyYaw = -0.4 + a * 0.6;
+        break;
+      }
+      case 'dodge': {
+        const d = extras.dodgeT ?? 0;
+        const s = Math.sin(d * Math.PI);
+        torsoPitch = 1.1; bodyY = 0.6 + s * 0.2; bodyRoll = s * 0.8;
+        armL = -1.0; armR = -1.5; foreL = 0.8; foreR = 0.5; legL = 1.3; legR = 0.8; shinL = -1.8; shinR = -1.5;
+        break;
+      }
+      case 'sleep':
+        torsoPitch = 1.5; bodyY = 0.32; bodyRoll = 1.4;
+        armL = -0.8; armR = -1.6; foreL = -1.2; foreR = -1.2; legL = 1.4; legR = 1.2; shinL = -1.9; shinR = -1.8;
+        headPitch = 0.4;
+        bodyY += this.breathe * 0.5;
+        break;
+      case 'dead':
+        torsoPitch = 1.55; bodyY = 0.3; bodyRoll = 1.6;
+        armL = -1.2; armR = -0.3; foreL = 0; foreR = 0; legL = 0.4; legR = 0.9; shinL = -0.2; shinR = -0.6;
+        headPitch = 0.3;
+        break;
+    }
+    void moving;
+
+    const k = Math.min(1, dt * 12);
+    this.lean += (torsoPitch - this.lean) * k;
+    this.body.position.y += (bodyY - this.body.position.y) * k;
+    this.body.rotation.set(this.lean, bodyYaw, bodyRoll);
+    this.head.rotation.x += (headPitch - this.head.rotation.x) * k;
+    const lerpRot = (g: THREE.Group, x: number) => { g.rotation.x += (x - g.rotation.x) * k; };
+    lerpRot(this.armL, armL); lerpRot(this.armR, armR);
+    lerpRot(this.foreL, foreL); lerpRot(this.foreR, foreR);
+    lerpRot(this.legL, legL); lerpRot(this.legR, legR);
+    lerpRot(this.shinL, shinL); lerpRot(this.shinR, shinR);
+    if (this.highlight > 0) this.furMat.emissiveIntensity = 0.5 + Math.sin(this.t * 4) * 0.3;
+  }
+
+  dispose() {
+    this.root.traverse((o) => { if ((o as THREE.Mesh).geometry) (o as THREE.Mesh).geometry.dispose(); });
+    this.furMat.dispose(); this.skinMat.dispose();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Animal rig
+// ---------------------------------------------------------------------------
+
+export class AnimalRig {
+  readonly root = new THREE.Group();
+  readonly body = new THREE.Group();
+  private legs: THREE.Group[] = [];
+  private head: THREE.Group;
+  private tail: THREE.Group | null = null;
+  private wings: THREE.Group[] = [];
+  private phase = 0;
+  private t = 0;
+  readonly species: SpeciesId;
+  private bodyMat: THREE.MeshStandardMaterial;
+  private baseY: number;
+
+  constructor(species: SpeciesId) {
+    this.species = species;
+    const def = SPECIES[species];
+    const s = def.size;
+    this.bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.9, flatShading: true });
+    const m = this.bodyMat;
+    const dark = mat('#221a14');
+    const kind = def.aquatic && species !== 'giant_otter' ? 'reptile' : species === 'python' ? 'snake' : def.flying ? 'bird' : species === 'fish' ? 'fish' : species === 'bee' || species === 'centipede' ? 'bug' : 'quad';
+
+    this.head = new THREE.Group();
+    this.baseY = 0.5 * s;
+
+    if (kind === 'quad') {
+      const long = species === 'machairodus' || species === 'hyena' ? 1.15 : 1;
+      const torso = capsule(0.32 * s, 0.9 * s * long, m);
+      torso.rotation.z = Math.PI / 2;
+      this.body.add(torso);
+      const skull = sphere(0.26 * s, m, 8); skull.scale.set(1, 0.9, 1.25);
+      this.head.add(skull);
+      const eye = sphere(0.04 * s, dark, 5); eye.position.set(-0.13 * s, 0.08 * s, 0.22 * s);
+      const eye2 = eye.clone(); eye2.position.x = 0.13 * s;
+      this.head.add(eye, eye2);
+      if (species === 'machairodus') {
+        const fang = new THREE.Mesh(new THREE.ConeGeometry(0.03 * s, 0.22 * s, 5), mat('#f4efe0'));
+        fang.position.set(-0.08 * s, -0.2 * s, 0.24 * s); fang.rotation.x = Math.PI;
+        const fang2 = fang.clone(); fang2.position.x = 0.08 * s;
+        this.head.add(fang, fang2);
+        const earA = new THREE.Mesh(new THREE.ConeGeometry(0.06 * s, 0.12 * s, 4), m); earA.position.set(-0.15 * s, 0.24 * s, 0);
+        const earB = earA.clone(); earB.position.x = 0.15 * s;
+        this.head.add(earA, earB);
+      }
+      if (species === 'metridiochoerus' || species === 'deinotherium') {
+        const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.04 * s, 0.35 * s, 5), mat('#efe6cc'));
+        tusk.position.set(-0.14 * s, -0.1 * s, 0.3 * s); tusk.rotation.x = species === 'deinotherium' ? Math.PI : -Math.PI / 2 + 0.5;
+        const tusk2 = tusk.clone(); tusk2.position.x = 0.14 * s;
+        this.head.add(tusk, tusk2);
+        if (species === 'deinotherium') {
+          const trunk = capsule(0.08 * s, 0.7 * s, m); trunk.position.set(0, -0.35 * s, 0.3 * s); trunk.rotation.x = 0.4;
+          this.head.add(trunk);
+          const earL = box(0.05 * s, 0.4 * s, 0.35 * s, m); earL.position.set(-0.3 * s, 0.05 * s, -0.05 * s);
+          const earR = earL.clone(); earR.position.x = 0.3 * s;
+          this.head.add(earL, earR);
+        }
+      }
+      if (species === 'antelope') {
+        const horn = new THREE.Mesh(new THREE.ConeGeometry(0.03 * s, 0.4 * s, 5), mat('#4a3a2a')); horn.position.set(-0.08 * s, 0.35 * s, -0.05 * s); horn.rotation.x = -0.3;
+        const horn2 = horn.clone(); horn2.position.x = 0.08 * s;
+        this.head.add(horn, horn2);
+      }
+      this.head.position.set(0, 0.18 * s, 0.62 * s * long);
+      this.body.add(this.head);
+      const legLen = (species === 'antelope' ? 0.65 : species === 'deinotherium' ? 0.75 : 0.5) * s;
+      this.baseY = legLen + 0.25 * s;
+      const legR = 0.08 * s;
+      const offsets: [number, number][] = [[-0.2, 0.38 * long], [0.2, 0.38 * long], [-0.2, -0.38 * long], [0.2, -0.38 * long]];
+      for (const [x, z] of offsets) {
+        const l = limb(legR, legLen, m);
+        l.position.set(x * s, -0.15 * s, z * s);
+        this.body.add(l); this.legs.push(l);
+      }
+      this.tail = limb(0.04 * s, 0.5 * s, m);
+      this.tail.position.set(0, 0.1 * s, -0.55 * s * long);
+      this.tail.rotation.x = -2.2;
+      this.body.add(this.tail);
+    } else if (kind === 'reptile') {
+      const torso = capsule(0.28 * s, 1.4 * s, m); torso.rotation.z = Math.PI / 2; torso.scale.y = 0.6;
+      this.body.add(torso);
+      const skull = box(0.36 * s, 0.18 * s, 0.7 * s, m); this.head.add(skull);
+      const eye = sphere(0.04 * s, dark, 5); eye.position.set(-0.14 * s, 0.1 * s, -0.1 * s); const eye2 = eye.clone(); eye2.position.x = 0.14 * s;
+      this.head.add(eye, eye2);
+      this.head.position.set(0, 0.02 * s, 1.0 * s);
+      this.body.add(this.head);
+      this.baseY = 0.28 * s;
+      for (const [x, z] of [[-0.3, 0.4], [0.3, 0.4], [-0.3, -0.4], [0.3, -0.4]] as [number, number][]) {
+        const l = limb(0.06 * s, 0.25 * s, m); l.position.set(x * s, -0.05 * s, z * s); l.rotation.z = x < 0 ? 0.9 : -0.9;
+        this.body.add(l); this.legs.push(l);
+      }
+      this.tail = limb(0.12 * s, 1.2 * s, m); this.tail.position.set(0, 0, -0.8 * s); this.tail.rotation.x = -Math.PI / 2 - 0.05;
+      this.body.add(this.tail);
+    } else if (kind === 'snake') {
+      const segs = 9;
+      for (let i = 0; i < segs; i++) {
+        const seg = sphere(0.14 * s * (1 - i / segs * 0.5), m, 7); seg.position.set(Math.sin(i * 0.9) * 0.2 * s, 0, -i * 0.25 * s);
+        this.body.add(seg); this.legs.push(new THREE.Group().add(seg));
+      }
+      const skull = sphere(0.16 * s, m, 7); skull.scale.set(1.2, 0.7, 1.4); this.head.add(skull);
+      const eye = sphere(0.03 * s, mat('#e0c020'), 5); eye.position.set(-0.08 * s, 0.05 * s, 0.1 * s); const eye2 = eye.clone(); eye2.position.x = 0.08 * s;
+      this.head.add(eye, eye2);
+      this.head.position.set(0, 0.05 * s, 0.2 * s);
+      this.body.add(this.head);
+      this.baseY = 0.14 * s;
+    } else if (kind === 'bird') {
+      const torso = sphere(0.22 * s, m, 8); torso.scale.set(1, 0.9, 1.6); this.body.add(torso);
+      const skull = sphere(0.14 * s, m, 7); this.head.add(skull);
+      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.05 * s, 0.18 * s, 5), mat('#d8b040')); beak.rotation.x = Math.PI / 2; beak.position.z = 0.18 * s;
+      this.head.add(beak);
+      this.head.position.set(0, 0.15 * s, 0.35 * s);
+      this.body.add(this.head);
+      for (const side of [-1, 1]) {
+        const w = new THREE.Group();
+        const wing = box(1.1 * s, 0.03 * s, 0.45 * s, m); wing.position.x = side * 0.55 * s;
+        w.add(wing); w.position.set(side * 0.15 * s, 0.1 * s, 0);
+        this.body.add(w); this.wings.push(w);
+      }
+      this.baseY = species === 'bee' ? 1.2 : 6;
+    } else if (kind === 'fish') {
+      const torso = sphere(0.18 * s, m, 7); torso.scale.set(0.7, 1, 2); this.body.add(torso);
+      const tailFin = new THREE.Mesh(new THREE.ConeGeometry(0.12 * s, 0.25 * s, 4), m); tailFin.rotation.x = Math.PI / 2; tailFin.position.z = -0.42 * s;
+      this.tail = new THREE.Group().add(tailFin); this.body.add(this.tail);
+      this.baseY = -0.6;
+    } else {
+      // bug
+      const torso = sphere(0.12 * s, m, 6); torso.scale.set(1, 0.8, 1.6); this.body.add(torso);
+      const skull = sphere(0.08 * s, m, 6); skull.position.z = 0.18 * s; this.head.add(skull); this.body.add(this.head);
+      this.baseY = species === 'bee' ? 1.3 : 0.1;
+      if (species === 'bee') {
+        for (const side of [-1, 1]) {
+          const w = new THREE.Group();
+          const wing = box(0.25 * s, 0.01 * s, 0.12 * s, mat('#ffffff', { transparent: true, opacity: 0.5 })); wing.position.x = side * 0.13 * s;
+          w.add(wing); this.body.add(w); this.wings.push(w);
+        }
+      }
+    }
+    this.body.position.y = this.baseY;
+    this.root.add(this.body);
+  }
+
+  update(dt: number, speed: number, state: string) {
+    this.t += dt;
+    this.phase += dt * speed * 2.2;
+    const p = this.phase;
+    const def = SPECIES[this.species];
+    const moving = speed > 0.2;
+    if (this.legs.length === 4) {
+      const amp = moving ? Math.min(0.9, speed / def.speed) : 0;
+      this.legs[0].rotation.x = Math.sin(p) * amp;
+      this.legs[1].rotation.x = Math.sin(p + Math.PI) * amp;
+      this.legs[2].rotation.x = Math.sin(p + Math.PI) * amp;
+      this.legs[3].rotation.x = Math.sin(p) * amp;
+      this.body.position.y = this.baseY + Math.abs(Math.sin(p)) * amp * 0.08 * def.size;
+      if (state === 'sleep') { this.body.position.y = this.baseY * 0.55; this.body.rotation.z = 0.5; } else this.body.rotation.z = 0;
+      if (state === 'attack') { this.body.rotation.x = -0.25; } else this.body.rotation.x = Math.sin(this.t * 1.5) * 0.02;
+      if (this.tail) this.tail.rotation.y = Math.sin(this.t * 3) * 0.3;
+      this.head.rotation.x = state === 'stalk' ? 0.25 : state === 'eat' ? 0.6 : Math.sin(this.t * 0.7) * 0.05;
+    } else if (this.legs.length > 4) {
+      // snake slither
+      this.legs.forEach((g, i) => {
+        const seg = g.children[0] as THREE.Mesh;
+        seg.position.x = Math.sin(this.phase * 1.5 + i * 0.9) * 0.2 * def.size * (moving ? 1 : 0.3);
+      });
+    }
+    if (this.wings.length) {
+      const flap = Math.sin(this.t * (this.species === 'bee' ? 60 : 6)) * (this.species === 'bee' ? 0.6 : 0.5);
+      this.wings[0].rotation.z = flap; this.wings[1].rotation.z = -flap;
+      this.body.rotation.z = -Math.sin(this.t * 0.8) * 0.2;
+    }
+    if (this.tail && this.species === 'fish') this.tail.rotation.y = Math.sin(this.t * 8) * 0.5;
+  }
+
+  setDead() {
+    this.body.rotation.z = Math.PI / 2;
+    this.body.position.y = this.baseY * 0.5;
+  }
+
+  dispose() {
+    this.root.traverse((o) => { if ((o as THREE.Mesh).geometry) (o as THREE.Mesh).geometry.dispose(); });
+    this.bodyMat.dispose();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Items
+// ---------------------------------------------------------------------------
+
+const itemGeoCache = new Map<ItemId, THREE.BufferGeometry>();
+
+export function itemGeometry(id: ItemId): THREE.BufferGeometry {
+  let g = itemGeoCache.get(id);
+  if (g) return g;
+  switch (id) {
+    case 'stick': case 'sharp_stick': case 'branch': case 'reed':
+      g = new THREE.CylinderGeometry(id === 'sharp_stick' ? 0.0 : 0.035, 0.05, id === 'reed' ? 1.6 : 1.1, 6); g.rotateZ(Math.PI / 2); break;
+    case 'stone_granite': case 'stone_basalt': case 'stone_obsidian': case 'grinder': case 'chopper':
+      g = new THREE.DodecahedronGeometry(0.16, 0); if (id === 'grinder') g.scale(1.2, 0.6, 1.2); if (id === 'chopper') g.scale(1.1, 0.5, 1.3); break;
+    case 'coconut': case 'coconut_open': g = new THREE.SphereGeometry(0.18, 8, 6); break;
+    case 'banana': g = new THREE.CapsuleGeometry(0.05, 0.25, 2, 6); g.rotateZ(1.1); break;
+    case 'mango': g = new THREE.SphereGeometry(0.13, 8, 6); g.scale(0.9, 1.2, 0.9); break;
+    case 'berry': g = new THREE.SphereGeometry(0.1, 6, 5); break;
+    case 'honey': g = new THREE.BoxGeometry(0.25, 0.18, 0.12); break;
+    case 'egg': g = new THREE.SphereGeometry(0.1, 8, 6); g.scale(0.85, 1.15, 0.85); break;
+    case 'mushroom': g = new THREE.ConeGeometry(0.14, 0.12, 8); g.translate(0, 0.12, 0); break;
+    case 'meat': g = new THREE.BoxGeometry(0.28, 0.16, 0.2); break;
+    case 'fish': g = new THREE.SphereGeometry(0.12, 6, 5); g.scale(0.6, 0.8, 2); break;
+    case 'bone': case 'bone_sharp': g = new THREE.CylinderGeometry(0.04, 0.05, 0.7, 6); g.rotateZ(Math.PI / 2); break;
+    case 'water_gourd': g = new THREE.SphereGeometry(0.16, 8, 6); g.scale(1, 1.3, 1); break;
+    case 'horsetail': case 'khat_leaf': case 'natal_grass': case 'fibers': case 'kapok_fiber':
+      g = new THREE.ConeGeometry(0.12, 0.45, 5); g.translate(0, 0.2, 0); break;
+    case 'thorn': g = new THREE.ConeGeometry(0.03, 0.2, 4); g.rotateZ(Math.PI / 2); break;
+    default: g = new THREE.SphereGeometry(0.12, 6, 5);
+  }
+  itemGeoCache.set(id, g);
+  return g;
+}
+
+export function makeItemMesh(id: ItemId): THREE.Mesh {
+  const def = ITEMS[id];
+  const mesh = new THREE.Mesh(itemGeometry(id), mat(def.color));
+  mesh.castShadow = true;
+  return mesh;
+}
