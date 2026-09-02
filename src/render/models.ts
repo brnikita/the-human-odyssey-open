@@ -40,6 +40,51 @@ function limb(r: number, len: number, m: THREE.Material): THREE.Group {
   return g;
 }
 
+/**
+ * Merge all static child meshes of a group into one mesh with vertex colours
+ * (one draw call instead of many). Non-mesh children are kept.
+ */
+export function bakeStatic(group: THREE.Group, material: THREE.Material): THREE.Mesh | null {
+  const meshes = group.children.filter((c) => (c as THREE.Mesh).isMesh) as THREE.Mesh[];
+  if (meshes.length < 2) return null;
+  const parts: THREE.BufferGeometry[] = [];
+  let total = 0;
+  for (const m of meshes) {
+    m.updateMatrix();
+    let g = m.geometry.clone();
+    if (g.index) g = g.toNonIndexed();
+    g.applyMatrix4(m.matrix);
+    if (!g.getAttribute('normal')) g.computeVertexNormals();
+    const c = ((m.material as THREE.MeshStandardMaterial).color ?? new THREE.Color(1, 1, 1));
+    const n = g.getAttribute('position').count;
+    const col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    parts.push(g);
+    total += n;
+  }
+  const pos = new Float32Array(total * 3), nrm = new Float32Array(total * 3), col = new Float32Array(total * 3);
+  let off = 0;
+  for (const g of parts) {
+    pos.set(g.getAttribute('position').array as Float32Array, off * 3);
+    nrm.set(g.getAttribute('normal').array as Float32Array, off * 3);
+    col.set(g.getAttribute('color').array as Float32Array, off * 3);
+    off += g.getAttribute('position').count;
+    g.dispose();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeBoundingSphere();
+  for (const m of meshes) { group.remove(m); m.geometry.dispose(); }
+  const merged = new THREE.Mesh(geo, material);
+  merged.castShadow = true;
+  merged.receiveShadow = true;
+  group.add(merged);
+  return merged;
+}
+
 // ---------------------------------------------------------------------------
 // Hominid rig
 // ---------------------------------------------------------------------------
@@ -63,11 +108,13 @@ export class HominidRig {
   scaleFactor = 1;
   private furMat: THREE.MeshStandardMaterial;
   private skinMat: THREE.MeshStandardMaterial;
+  private bakedMat: THREE.MeshStandardMaterial;
   private highlight = 0;
 
   constructor(furColor = '#3a2a1e', skinColor = '#6e5140') {
     this.furMat = new THREE.MeshStandardMaterial({ color: furColor, roughness: 0.95, flatShading: true });
     this.skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.8, flatShading: true });
+    this.bakedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
     const fur = this.furMat, skin = this.skinMat;
 
     this.torso = capsule(0.28, 0.5, fur);
@@ -84,6 +131,7 @@ export class HominidRig {
     const earL = sphere(0.05, skin, 6); earL.position.set(-0.22, 0, 0);
     const earR = earL.clone(); earR.position.x = 0.22;
     this.head.add(skull, face, browL, browR, eyeL, eyeR, earL, earR);
+    bakeStatic(this.head, this.bakedMat);
     this.head.position.set(0, 0.45, 0.05);
     this.body.add(this.head);
 
@@ -107,6 +155,7 @@ export class HominidRig {
     const footL = box(0.12, 0.06, 0.24, skin); footL.position.set(0, -0.34, 0.06);
     const footR = footL.clone();
     this.shinL.add(footL); this.shinR.add(footR);
+    bakeStatic(this.shinL, this.bakedMat); bakeStatic(this.shinR, this.bakedMat);
     this.body.add(this.legL, this.legR);
 
     this.back.position.set(0, 0.35, -0.3);
@@ -126,6 +175,7 @@ export class HominidRig {
   setHighlight(v: number) {
     this.highlight = v;
     this.furMat.emissive.set('#ffcc66').multiplyScalar(v * 0.5);
+    this.bakedMat.emissive.copy(this.furMat.emissive);
   }
 
   setColors(fur: string, skin: string) {
@@ -260,12 +310,12 @@ export class HominidRig {
     lerpRot(this.foreL, foreL); lerpRot(this.foreR, foreR);
     lerpRot(this.legL, legL); lerpRot(this.legR, legR);
     lerpRot(this.shinL, shinL); lerpRot(this.shinR, shinR);
-    if (this.highlight > 0) this.furMat.emissiveIntensity = 0.5 + Math.sin(this.t * 4) * 0.3;
+    if (this.highlight > 0) { this.furMat.emissiveIntensity = 0.5 + Math.sin(this.t * 4) * 0.3; this.bakedMat.emissiveIntensity = this.furMat.emissiveIntensity; }
   }
 
   dispose() {
     this.root.traverse((o) => { if ((o as THREE.Mesh).geometry) (o as THREE.Mesh).geometry.dispose(); });
-    this.furMat.dispose(); this.skinMat.dispose();
+    this.furMat.dispose(); this.skinMat.dispose(); this.bakedMat.dispose();
   }
 }
 
@@ -409,6 +459,7 @@ export class AnimalRig {
         }
       }
     }
+    bakeStatic(this.head, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true }));
     this.body.position.y = this.baseY;
     this.root.add(this.body);
   }

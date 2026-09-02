@@ -4,6 +4,7 @@ import { Vegetation } from '@/world/vegetation';
 import { HominidRig } from '@/render/models';
 import { PlayerController, type MoveModifiers } from '@/systems/controller';
 import { Input } from '@/core/input';
+import { PerspectiveCamera } from 'three';
 
 const MODS: MoveModifiers = { speed: 1, climb: 1, canSwim: true, canDive: false, bipedal: false, longJump: false, fastClimb: false, stageSpeed: 1, conditionSpeed: 1, fearSlow: 1 };
 
@@ -148,7 +149,6 @@ describe('PlayerController', () => {
     const p = findFlatLand();
     c.teleport(p.x, p.z);
     step(c, input, 5);
-    const { PerspectiveCamera } = require('three') as typeof import('three');
     const cam = new PerspectiveCamera(60, 1, 0.1, 100);
     for (let i = 0; i < 60; i++) c.updateCamera(cam, 1 / 60, { intel: false, fov: 60 });
     expect(cam.position.y).toBeGreaterThan(terrain.heightAt(cam.position.x, cam.position.z) + 0.4);
