@@ -23,5 +23,5 @@ First release of The Human Odyssey, a browser survival and evolution game inspir
   lineage from 10 to 2 million years ago.
 - Save/continue, settings (quality, volume, sensitivity, inverted look), English and
   Russian localisation, contextual hints, procedural audio.
-- 238 unit tests, deterministic Playwright gameplay suite, visual smoke spec, CI with
+- 231 unit tests, deterministic Playwright gameplay suite, visual smoke spec, CI with
   GitHub Actions.
