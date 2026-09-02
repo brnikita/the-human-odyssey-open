@@ -253,6 +253,8 @@ export class HominidRig {
     this.body.position.y += (bodyY - this.body.position.y) * k;
     this.body.rotation.set(this.lean, bodyYaw, bodyRoll);
     this.head.rotation.x += (headPitch - this.head.rotation.x) * k;
+    const lookAround = (state === 'idle' || state === 'walk') ? Math.sin(this.t * 0.7) * 0.35 + Math.sin(this.t * 1.9) * 0.1 : 0;
+    this.head.rotation.y += (lookAround - this.head.rotation.y) * Math.min(1, dt * 3);
     const lerpRot = (g: THREE.Group, x: number) => { g.rotation.x += (x - g.rotation.x) * k; };
     lerpRot(this.armL, armL); lerpRot(this.armR, armR);
     lerpRot(this.foreL, foreL); lerpRot(this.foreR, foreR);

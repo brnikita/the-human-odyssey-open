@@ -39,7 +39,7 @@ describe('Terrain', () => {
   it('builds chunk meshes', () => {
     const g = t.build();
     expect(g.children.length).toBe(400);
-    const mesh = g.children[0] as { geometry: { getAttribute: (n: string) => { count: number } } };
+    const mesh = g.children[0] as unknown as { geometry: { getAttribute: (n: string) => { count: number } } };
     expect(mesh.geometry.getAttribute('position').count).toBe(25 * 25);
     t.dispose();
   });

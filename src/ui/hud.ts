@@ -79,6 +79,7 @@ export class Hud {
     this.root.id = 'hud';
     parent.appendChild(this.root);
 
+    this.root.appendChild(el('div', 'overlay vignette'));
     for (const k of ['fear', 'damage', 'intel', 'night', 'underwater']) {
       const o = el('div', `overlay ${k}`);
       this.overlays[k] = o;
