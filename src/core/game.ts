@@ -767,7 +767,7 @@ export class Game {
 
     // Interactions
     if (!this.intel.active && !busy) this.handleInteractions();
-    if (input.justPressed('use') && !busy) this.useHeld();
+    if ((input.justPressed('use') || (input.justPressed('smell') && !this.intel.active)) && !busy) this.useHeld();
     if (input.justPressed('swapHands') && !busy) this.craft();
     if (input.justPressed('dropLeft') && !busy) this.drop('left');
     if (input.justPressed('dropRight') && !busy) this.drop('right');
@@ -1634,7 +1634,7 @@ export class Game {
       }
     }
     const held = p.held.right ?? p.held.left;
-    if (!prompt && held && !c.isBusy) prompt = { target: localizedName('item', held, ITEMS[held].name), unknown: false, actions: [{ key: 'F', label: t('prompt.use') }, { key: '1', label: t('prompt.alter') }] };
+    if (!prompt && held && !c.isBusy) prompt = { target: localizedName('item', held, ITEMS[held].name), unknown: false, actions: [{ key: 'E', label: t('prompt.use') }, { key: '1', label: t('prompt.alter') }] };
 
     const night = this.clock.isNight ? 1 : 0;
     const data: HudData = {

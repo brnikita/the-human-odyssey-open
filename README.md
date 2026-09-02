@@ -33,7 +33,7 @@ Production build: `npm run build` (output in `dist/`, serve statically).
 | Q (hold) | Intelligence mode: time slows, senses reveal things |
 | E / R | Switch to smell / hearing in intelligence mode |
 | Left click (in Q) | Hold to identify the focused thing |
-| F | Eat / use held item |
+| E or F | Eat / use held item |
 | 1 | Alter a held item, or combine both hands |
 | Z / V | Drop left / right item |
 | R or Tab | Neuronal network |
@@ -105,7 +105,7 @@ distances are reduced until the frame rate is stable.
 
 Язык интерфейса определяется автоматически по языку браузера и переключается в
 настройках. Управление: WASD — движение, Shift — бег, пробел — прыжок/лазание,
-Q — режим чувств, ЛКМ — взаимодействие/атака, ПКМ — уклонение, F — съесть,
+Q — режим чувств, ЛКМ — взаимодействие/атака, ПКМ — уклонение, E или F — съесть,
 1 — изменить/соединить предметы, R или Tab — нейронная сеть, I/T/M — знания/клан/карта,
 C — позвать клан или запугать хищника, N — спать, G — смена поколения, H — помощь.
 

@@ -99,7 +99,7 @@ test.describe('The Human Odyssey', () => {
       api.spawnItem('banana', 1.2, 0); api.face(c.position.x + 1.2, c.position.z); step(5);
       api.click(0); step(10);
       const picked = { ...g.player.held };
-      api.setStat('hunger', 40); api.press('use'); step(2); api.release('use'); step(80);
+      api.setStat('hunger', 40); api.press('smell'); step(2); api.release('smell'); step(80);
       const ate = { hunger: g.player.stats.hunger, held: { ...g.player.held }, eatCount: g.lineage.actionCounts.eat };
       api.giveItem('stick', 'right'); api.press('dropRight'); step(2); api.release('dropRight'); step(10);
       const dropped = { held: { ...g.player.held }, nearest: api.nearestItemId() };
