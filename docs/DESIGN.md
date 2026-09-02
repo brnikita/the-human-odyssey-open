@@ -60,3 +60,15 @@ RMB dodge, Q intelligence, E smell, R hearing, Tab neuronal, I inventory, F use 
 ## Quality bar
 - 60 fps on mid GPU at 1080p. Shadows, fog, tone mapping, procedural animation.
 - All systems unit tested; e2e smoke: load, start game, move, sense, open neuronal, save/load.
+
+## Added after the first playable build
+- **Landmarks** (`src/world/landmarks.ts`): six unique procedural places placed per seed
+  far from the settlement; identified through the senses for a bonus; shown on the map.
+- **Settings** (`src/core/settings.ts`): quality presets (auto/low/medium/high), volume,
+  mouse sensitivity, inverted look, fps display; persisted in localStorage.
+- **Localisation** (`src/i18n`): English and Russian dictionaries, `t()` for UI strings and
+  `localizedName()` for data names; language auto-detected from the browser and switchable.
+- **Automation API** (`window.game.api`): `step(n)` advances the simulation deterministically;
+  used by the Playwright suite so tests do not depend on GPU frame rate.
+- **Adaptive quality**: pixel ratio, vegetation view distances and shadow map size adapt to
+  the measured frame rate when quality is set to auto.
