@@ -90,6 +90,9 @@ export class Game {
   private predatorNear = false;
   private lowQuality = false;
   private unknownExposure = 0;
+  private hintsShown = new Set<string>();
+  private hintTimer = 0;
+  private playTime = 0;
   private menuScene = new THREE.Scene();
   private menuSky: Sky;
   private menuTime = 0;
@@ -132,6 +135,13 @@ export class Game {
     this.panels = new Panels(uiRoot);
     window.addEventListener('resize', () => this.resize());
     document.addEventListener('visibilitychange', () => { if (document.hidden && this.state === 'playing') this.pause(); });
+    document.addEventListener('pointerlockchange', () => {
+      // Esc in pointer lock is swallowed by the browser: treat unlocking as a pause request.
+      if (!document.pointerLockElement && this.state === 'playing' && this.input.wantPointerLock && this.sleepUntil === null) this.pause();
+    });
+    if (matchMedia('(pointer: coarse)').matches && !('onmousemove' in window)) {
+      setTimeout(() => this.hud.toast('A keyboard and mouse are required to play.', 'warn'), 500);
+    }
     this.resize();
     this.screens.showMenu(hasSave());
     this.input.wantPointerLock = false;
@@ -475,6 +485,8 @@ export class Game {
 
   // ------------------------------------------------------------------- frame
   private frame(dt: number) {
+    const size = this.renderer.getSize(new THREE.Vector2());
+    if (size.x !== window.innerWidth || size.y !== window.innerHeight) this.resize();
     const w = this.world;
     if (w && this.controller) {
       if (this.state === 'playing') this.simulate(dt);
@@ -510,7 +522,7 @@ export class Game {
   /** Slow sunrise behind the main menu. */
   private renderMenu(dt: number) {
     this.menuTime += dt;
-    const t = 0.2 + (Math.sin(this.menuTime * 0.05) * 0.5 + 0.5) * 0.35; // dawn .. afternoon
+    const t = 0.27 + (Math.sin(this.menuTime * 0.05) * 0.5 + 0.5) * 0.3; // sunrise .. afternoon
     const focus = new THREE.Vector3(0, 0, 0);
     this.menuSky.update(t, dt, focus);
     this.camera.position.set(Math.sin(this.menuTime * 0.03) * 4, 2, Math.cos(this.menuTime * 0.03) * 4);
@@ -715,11 +727,40 @@ export class Game {
     this.updateOutsiders(simDt);
     bondTick(this.clan.members.filter((m) => !m.isOutsider), simDt);
 
+    this.updateHints(dt);
+
     // Ambient audio
     const biome = w.terrain.biomeAt(c.position.x, c.position.z);
     this.audio.update(dt, { night: this.clock.isNight ? 1 : 0, rain: w.sky.rain, fear: p.fear, inJungle: biome === 'jungle' ? 1 : biome === 'swamp' ? 0.5 : 0, underwater: false, timeScale: this.clock.timeScale });
     this.damageFlash = Math.max(0, this.damageFlash - dt * 2);
     if (this.player.state !== 'dead') this.updateHud();
+  }
+
+  /** Contextual one-time hints for new players. */
+  private updateHints(dt: number) {
+    this.playTime += dt;
+    this.hintTimer -= dt;
+    if (this.hintTimer > 0) return;
+    this.hintTimer = 4;
+    const p = this.player;
+    const w = this.world!;
+    const hint = (id: string, cond: boolean, text: string) => {
+      if (this.hintsShown.has(id) || !cond) return false;
+      this.hintsShown.add(id);
+      this.hud.toast(text, 'info');
+      return true;
+    };
+    if (hint('senses', this.playTime > 25 && this.lineage.discoveries.length === 0, 'Hold Q to use your senses. Unknown things glow blue: look at one and hold the left button to identify it.')) return;
+    if (hint('neurons', this.lineage.neuronalEnergy >= 40 && p.neurons.length === 0, 'You have neuronal energy. Press Tab to open the neuronal network and unlock a neuron.')) return;
+    if (hint('fear', p.fear > 45, 'Fear grows in unknown territory. Discoveries give dopamine; return to known ground to calm down.')) return;
+    if (hint('hunger', p.stats.hunger < 55, 'You are getting hungry. Harvest fruit from bushes and trees, then press F to eat.')) return;
+    if (hint('thirst', p.stats.thirst < 55, 'You are thirsty. Find the river or lake and click to drink.')) return;
+    if (hint('energy', p.stats.energy < 45, 'You are tired. Sleep at the settlement with N to restore energy.')) return;
+    if (hint('tool', (p.held.left === 'stone_granite' || p.held.right === 'stone_granite') && !this.hasAbility('craft_grinder'), 'Granite can become a grinder once you unlock Grinder Making in the Dexterity branch.')) return;
+    if (hint('stick', (p.held.left === 'stick' || p.held.right === 'stick') && !this.hasAbility('use_two_hands'), 'A stick sharpened on a grinder becomes a weapon. Ambidexterity (Tab) lets you combine both hands.')) return;
+    const babyNear = [...w.hominids.values()].some((h) => h.data.stage === 'baby' && h.rig.root.parent === w.scene && h.rig.root.position.distanceTo(this.controller!.position) < 12);
+    if (hint('baby', babyNear && !p.carriedBaby && this.playTime > 60, 'Carry a baby (click on it) to gain neuronal energy faster. Keep it safe from eagles.')) return;
+    if (hint('generation', this.lineage.generation === 1 && this.playTime > 600, 'When you have babies and reinforced neurons, press G at the settlement to change generation.')) return;
   }
 
   private onSurvivalEvent(ev: import('@/systems/survival').SurvivalEvent) {
@@ -1002,7 +1043,7 @@ export class Game {
   private freeHand(): 'left' | 'right' | null {
     const p = this.player;
     if (!p.held.right) return 'right';
-    if (!p.held.left && (this.mods.twoHands || true)) return 'left';
+    if (!p.held.left) return 'left';
     return null;
   }
 
