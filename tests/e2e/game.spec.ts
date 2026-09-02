@@ -210,6 +210,10 @@ test.describe('The Human Odyssey', () => {
 
   test('neuronal network: unlock, reinforce, modifiers', async ({ page }) => {
     await startGame(page);
+    await run(page, `api.press('hear'); step(2); api.release('hear'); step(2);`);
+    expect(await page.evaluate(() => window.game.state)).toBe('neuronal');
+    await run(page, `api.press('hear'); step(2); api.release('hear'); step(2);`);
+    expect(await page.evaluate(() => window.game.state)).toBe('playing');
     await run(page, `api.press('neuronal'); step(2); api.release('neuronal'); step(2);`);
     expect(await page.evaluate(() => window.game.state)).toBe('neuronal');
     await expect(page.locator('#neuronal')).toBeVisible();

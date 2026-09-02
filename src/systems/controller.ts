@@ -159,7 +159,7 @@ export class PlayerController {
     const inZ = allowInput ? (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0) : 0;
     const wantRun = allowInput && input.isDown('run');
     const cf = this.cameraForward;
-    const cr = this.tmp.set(cf.z, 0, -cf.x);
+    const cr = this.tmp.set(-cf.z, 0, cf.x); // screen-right for a camera looking along cf
     const move = new THREE.Vector3().addScaledVector(cf, inZ).addScaledVector(cr, inX);
     const hasMove = move.lengthSq() > 0.001;
     if (hasMove) move.normalize();
@@ -175,7 +175,7 @@ export class PlayerController {
       if (allowInput) dy = (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0);
       this.climbHeight = clamp(this.climbHeight + dy * climbSpeed * dt, 0, c.height);
       // strafe around trunk
-      const ang = Math.atan2(this.position.x - c.position.x, this.position.z - c.position.z) + inX * dt * 1.5;
+      const ang = Math.atan2(this.position.x - c.position.x, this.position.z - c.position.z) - inX * dt * 1.5;
       this.position.x = c.position.x + Math.sin(ang) * (c.radius + 0.35);
       this.position.z = c.position.z + Math.cos(ang) * (c.radius + 0.35);
       this.position.y = c.position.y + this.climbHeight;

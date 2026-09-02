@@ -57,6 +57,18 @@ describe('PlayerController', () => {
     expect(c.state).toBe('idle');
   });
 
+  it('strafes to screen-right with D and screen-left with A', () => {
+    const c = makeController();
+    const input = new Input(document.createElement('div'));
+    const p = findFlatLand();
+    c.teleport(p.x, p.z); c.camYaw = 0; // camera looks along +z, so screen-right is -x
+    input.press('right'); step(c, input, 90); input.release('right');
+    expect(c.position.x - p.x).toBeLessThan(-2);
+    c.teleport(p.x, p.z);
+    input.press('left'); step(c, input, 90); input.release('left');
+    expect(c.position.x - p.x).toBeGreaterThan(2);
+  });
+
   it('runs faster than walking', () => {
     const c = makeController();
     const input = new Input(document.createElement('div'));

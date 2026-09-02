@@ -10,8 +10,8 @@ if (process.env.MENU_SHOT) { await page.waitForFunction(() => !!window.game); aw
 await page.waitForFunction(() => !!window.game);
 await page.evaluate(async () => { await window.game.api.newGame(42); });
 await page.waitForFunction(() => window.game.state === 'playing', null, { timeout: 120000 });
-const opts = { pitch: Number(process.env.PITCH ?? 0.25), dist: Number(process.env.DIST ?? 5), spawn: !process.env.NO_SPAWN, front: !!process.env.FRONT, walk: !!process.env.WALK };
-await page.evaluate((o) => { const g = window.game; g.api.step(30); g.controller.camPitch = o.pitch; g.controller.camDist = o.dist; if (o.front) g.controller.camYaw = g.controller.yaw + Math.PI; if (o.spawn) { g.api.spawnAnimal('machairodus', 3, 1); g.api.spawnAnimal('antelope', -3, 2); } if (o.walk) { g.api.press('forward'); g.api.step(25); } else g.api.step(2); for (let i = 0; i < 2; i++) g.render(0.016); g.updateHud(); }, opts);
+const opts = { pitch: Number(process.env.PITCH ?? 0.25), dist: Number(process.env.DIST ?? 5), spawn: !process.env.NO_SPAWN, front: !!process.env.FRONT, walk: !!process.env.WALK, side: !!process.env.SIDE };
+await page.evaluate((o) => { const g = window.game; g.api.step(30); g.controller.camPitch = o.pitch; g.controller.camDist = o.dist; if (o.front) g.controller.camYaw = g.controller.yaw + Math.PI; if (o.side) g.controller.camYaw = g.controller.yaw + Math.PI / 2; if (o.spawn) { g.api.spawnAnimal('machairodus', 3, 1); g.api.spawnAnimal('antelope', -3, 2); } if (o.walk) { const yaw0 = g.controller.camYaw; g.controller.camYaw = g.controller.yaw; g.api.press('forward'); g.api.step(25); g.controller.camYaw = yaw0 + (o.side ? 0 : 0); if (o.side) g.controller.camYaw = g.controller.yaw + Math.PI / 2; } else g.api.step(2); for (let i = 0; i < 2; i++) g.render(0.016); g.updateHud(); }, opts);
 await page.waitForTimeout(500);
 await page.screenshot({ path: out, timeout: 180000 });
 const info = await page.evaluate(() => { const g = window.game; g.render(0.016); return { calls: g.renderer.info.render.calls, tris: g.renderer.info.render.triangles }; });

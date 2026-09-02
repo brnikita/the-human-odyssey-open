@@ -42,7 +42,7 @@ export const en: Record<string, string> = {
 
   // ---- Help ----
   'help.title': 'How to play',
-  'help.intro': 'You control one member of a hominid clan. The world is unknown and frightening: venture into new places, use your senses to identify everything, and your fear turns into dopamine and neuronal energy. Spend energy in the <b>neuronal network</b> (Tab) to unlock skills. Eat, drink and sleep at the settlement to survive. Carry babies to learn faster, mate to grow the clan, and trigger a <b>generation change</b> (G at settlement) to pass reinforced neurons to your descendants. Every evolution leap moves your lineage forward in time.',
+  'help.intro': 'You control one member of a hominid clan. The world is unknown and frightening: venture into new places, use your senses to identify everything, and your fear turns into dopamine and neuronal energy. Spend energy in the <b>neuronal network</b> (R) to unlock skills. Eat, drink and sleep at the settlement to survive. Carry babies to learn faster, mate to grow the clan, and trigger a <b>generation change</b> (G at settlement) to pass reinforced neurons to your descendants. Every evolution leap moves your lineage forward in time.',
   'help.tips': '<b>Tips:</b> Panic makes you weak; find the glowing lights when fear peaks. Horsetail cures bleeding, natal grass cures poison, kapok fiber cures cold, khat restores energy. Sharpen a stick with a grinder (granite stone altered with <kbd>1</kbd>) to hunt. Predators telegraph attacks: dodge with right click when the prompt appears, then counter-attack.',
   'help.close': 'Close',
 
@@ -62,7 +62,7 @@ export const en: Record<string, string> = {
   'controls.use.key': 'F', 'controls.use': 'Use / eat held item',
   'controls.combine.key': '1', 'controls.combine': 'Combine or alter held items',
   'controls.drop.key': 'Z / V', 'controls.drop': 'Drop left / right item',
-  'controls.neurons.key': 'Tab', 'controls.neurons': 'Neuronal network',
+  'controls.neurons.key': 'R / Tab', 'controls.neurons': 'Neuronal network',
   'controls.inventory.key': 'I', 'controls.inventory': 'Inventory & knowledge',
   'controls.clan.key': 'T', 'controls.clan': 'Clan',
   'controls.map.key': 'M', 'controls.map': 'Map',
@@ -137,7 +137,7 @@ export const en: Record<string, string> = {
   'hud.yearsAgo': '{years} years ago',
   'hud.generation': 'Generation {generation} · {n} clan members',
   'hud.carrying': 'carrying {n} baby',
-  'hud.controls': 'H help · Tab neurons · Q senses · Esc pause',
+  'hud.controls': 'H help · R neurons · Q senses · Esc pause',
   'hud.fps': '{fps} fps',
   'hud.findLights': 'FIND THE LIGHTS {found}/{needed} · {s}s',
   'combat.dodge': 'DODGE!',
@@ -304,13 +304,13 @@ export const en: Record<string, string> = {
 
   // ---- Contextual hints (game.ts) ----
   'hint.senses': 'Hold Q to use your senses. Unknown things glow blue: look at one and hold the left button to identify it.',
-  'hint.neurons': 'You have neuronal energy. Press Tab to open the neuronal network and unlock a neuron.',
+  'hint.neurons': 'You have neuronal energy. Press R to open the neuronal network and unlock a neuron.',
   'hint.fear': 'Fear grows in unknown territory. Discoveries give dopamine; return to known ground to calm down.',
   'hint.hunger': 'You are getting hungry. Harvest fruit from bushes and trees, then press F to eat.',
   'hint.thirst': 'You are thirsty. Find the river or lake and click to drink.',
   'hint.energy': 'You are tired. Sleep at the settlement with N to restore energy.',
   'hint.tool': 'Granite can become a grinder once you unlock Grinder Making in the Dexterity branch.',
-  'hint.stick': 'A stick sharpened on a grinder becomes a weapon. Ambidexterity (Tab) lets you combine both hands.',
+  'hint.stick': 'A stick sharpened on a grinder becomes a weapon. Ambidexterity (R) lets you combine both hands.',
   'hint.baby': 'Carry a baby (click on it) to gain neuronal energy faster. Keep it safe from eagles.',
   'hint.generation': 'When you have babies and reinforced neurons, press G at the settlement to change generation.',
 
@@ -361,7 +361,7 @@ export const en: Record<string, string> = {
 
   // ---- Neuronal network ----
   'neuronal.title': 'Neuronal Network',
-  'neuronal.foot': 'Click a neuron to select. <b>Unlock</b> spends neuronal energy. <b>Reinforce</b> makes it permanent through generations. Neurons with a requirement are unlocked by practising the matching action. Carrying babies increases energy gain.<br><br><kbd>Tab</kbd> / <kbd>Esc</kbd> close',
+  'neuronal.foot': 'Click a neuron to select. <b>Unlock</b> spends neuronal energy. <b>Reinforce</b> makes it permanent through generations. Neurons with a requirement are unlocked by practising the matching action. Carrying babies increases energy gain.<br><br><kbd>R</kbd> / <kbd>Tab</kbd> / <kbd>Esc</kbd> close',
   'neuronal.unlock': 'Unlock',
   'neuronal.reinforce': 'Reinforce',
   'neuronal.reinforceCost': 'Reinforce ({cost})',

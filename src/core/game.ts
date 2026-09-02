@@ -516,7 +516,7 @@ export class Game {
     const w = this.world;
     if (w && this.controller) {
       if (this.state === 'playing') this.simulate(dt);
-      else this.idleAnimate(dt);
+      else { this.handleOverlayKeys(); this.idleAnimate(dt); }
       this.render(dt);
     } else if (w) {
       this.render(dt);
@@ -580,6 +580,14 @@ export class Game {
     this.renderer.render(this.menuScene, this.camera);
   }
 
+  /** Keyboard shortcuts that close overlay screens (neuronal network, panels, help). */
+  private handleOverlayKeys() {
+    const input = this.input;
+    if (this.state === 'neuronal' && (input.justPressed('neuronal') || input.justPressed('hear') || input.justPressed('pause'))) this.closeNeuronal();
+    else if (this.state === 'panel' && (input.justPressed('pause') || input.justPressed('inventory') || input.justPressed('clan') || input.justPressed('map'))) this.resume();
+    else if (this.state === 'help' && (input.justPressed('pause') || input.justPressed('help'))) this.resume();
+  }
+
   private idleAnimate(dt: number) {
     const w = this.world!;
     for (const a of w.animals) a.rig.update(dt, 0, a.data.alive ? 'idle' : 'dead');
@@ -633,7 +641,7 @@ export class Game {
 
     // Global keys
     if (input.justPressed('pause')) { this.pause(); return; }
-    if (input.justPressed('neuronal')) { this.openNeuronal(); return; }
+    if (input.justPressed('neuronal') || (input.justPressed('hear') && !this.intel.active)) { this.openNeuronal(); return; }
     if (input.justPressed('inventory')) { this.openPanel('inventory'); return; }
     if (input.justPressed('clan')) { this.openPanel('clan'); return; }
     if (input.justPressed('map')) { this.openPanel('map'); return; }
@@ -1683,7 +1691,7 @@ export class Game {
     unlock: (id: string) => this.unlock(id),
     setTime: (t: number) => { this.clock.timeOfDay = t; },
     /** Deterministically advance the simulation by n fixed steps (for automated tests). */
-    step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) { if (this.state === 'playing' && this.world && this.controller) this.simulate(dt); this.input.endFrame(); } },
+    step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) { if (this.state === 'playing' && this.world && this.controller) this.simulate(dt); else this.handleOverlayKeys(); this.input.endFrame(); } },
     applyCondition: (id: 'bleeding' | 'poisoned' | 'fractured' | 'cold' | 'exhausted') => applyCondition(this.player, id, 0.5),
     goToSettlement: () => { const s = this.world!.settlement; this.controller?.teleport(s.x + 2, s.z + 2); },
     nearestItemId: () => this.world?.nearestItem(this.controller!.position, 4)?.id ?? null,
