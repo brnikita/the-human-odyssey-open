@@ -1,6 +1,7 @@
 import type { ActionId, NeuronId } from '@/core/types';
 import { NEURONS, NEURON_MAP, BRANCHES, BRANCH_COLORS } from '@/data/neurons';
 import { canUnlock, neuronProgress, reinforceCost, type UnlockContext } from '@/systems/neuronal';
+import { t, getLang, localizedName, localizedDescription, type Lang } from '@/i18n';
 
 export interface NeuronalViewData {
   unlocked: Set<NeuronId>;
@@ -31,6 +32,8 @@ export class NeuronalUI {
   private infoEl: HTMLElement;
   private unlockBtn: HTMLButtonElement;
   private reinforceBtn: HTMLButtonElement;
+  private closeBtn: HTMLButtonElement;
+  private lang: Lang | null = null;
   private pulse: { id: NeuronId; t: number }[] = [];
 
   constructor(parent: HTMLElement, private cb: NeuronalCallbacks) {
@@ -46,22 +49,21 @@ export class NeuronalUI {
     window.addEventListener('resize', () => { if (this.visible) this.resize(); });
     this.side = document.createElement('div');
     this.side.className = 'side';
-    this.side.innerHTML = `<h2>Neuronal Network</h2><div class="energy"></div><div class="legend">${BRANCHES.map((b) => `<span style="color:${BRANCH_COLORS[b]}">${b}</span>`).join('')}</div><div class="info"></div><div class="foot">Click a neuron to select. <b>Unlock</b> spends neuronal energy. <b>Reinforce</b> makes it permanent through generations. Neurons with a requirement are unlocked by practising the matching action. Carrying babies increases energy gain.<br><br><kbd>Tab</kbd> / <kbd>Esc</kbd> close</div>`;
+    this.side.innerHTML = '<h2></h2><div class="energy"></div><div class="legend"></div><div class="info"></div><div class="foot"></div>';
     this.energyEl = this.side.querySelector('.energy')!;
     this.infoEl = this.side.querySelector('.info')!;
     this.unlockBtn = document.createElement('button');
     this.unlockBtn.className = 'btn primary';
-    this.unlockBtn.textContent = 'Unlock';
     this.reinforceBtn = document.createElement('button');
     this.reinforceBtn.className = 'btn';
-    this.reinforceBtn.textContent = 'Reinforce';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'btn small';
-    closeBtn.textContent = 'Close';
     closeBtn.onclick = () => this.cb.onClose();
+    this.closeBtn = closeBtn;
     this.side.insertBefore(this.reinforceBtn, this.side.querySelector('.foot'));
     this.side.insertBefore(this.unlockBtn, this.reinforceBtn);
     this.side.appendChild(closeBtn);
+    this.relabel();
     this.root.appendChild(this.side);
     parent.appendChild(this.root);
 
@@ -82,6 +84,7 @@ export class NeuronalUI {
 
   open(data: NeuronalViewData) {
     this.data = data;
+    if (this.lang !== getLang()) this.relabel();
     this.root.hidden = false;
     this.resize();
     this.refreshInfo();
@@ -128,12 +131,24 @@ export class NeuronalUI {
     return { unlocked: this.data.unlocked, energy: this.data.energy, actionCounts: this.data.actionCounts };
   }
 
+  /** Re-render the static side-panel texts after a language change. */
+  private relabel() {
+    this.lang = getLang();
+    this.side.querySelector('h2')!.textContent = t('neuronal.title');
+    this.side.querySelector('.legend')!.innerHTML = BRANCHES.map((b) => `<span style="color:${BRANCH_COLORS[b]}">${t(`branch.${b}`)}</span>`).join('');
+    this.side.querySelector('.foot')!.innerHTML = t('neuronal.foot');
+    this.unlockBtn.textContent = t('neuronal.unlock');
+    this.reinforceBtn.textContent = t('neuronal.reinforce');
+    this.closeBtn.textContent = t('neuronal.close');
+  }
+
   private refreshInfo() {
     if (!this.data) return;
-    this.energyEl.textContent = `◈ ${Math.floor(this.data.energy)} energy${this.data.babiesCarried ? ` · ×${(1 + 0.5 * this.data.babiesCarried).toFixed(1)} (babies)` : ''}`;
+    this.energyEl.textContent = `${t('neuronal.energy', { n: Math.floor(this.data.energy) })}${this.data.babiesCarried ? ` · ${t('neuronal.babies', { mult: (1 + 0.5 * this.data.babiesCarried).toFixed(1) })}` : ''}`;
     if (!this.selected) {
-      this.infoEl.innerHTML = `<div class="desc">Select a neuron to see its details. Unlocked: ${this.data.unlocked.size} / ${NEURONS.length}. Reinforced: ${this.data.reinforced.size}.</div>`;
+      this.infoEl.innerHTML = `<div class="desc">${t('neuronal.select', { unlocked: this.data.unlocked.size, total: NEURONS.length, reinforced: this.data.reinforced.size })}</div>`;
       this.unlockBtn.disabled = true; this.reinforceBtn.disabled = true;
+      this.reinforceBtn.textContent = t('neuronal.reinforce');
       return;
     }
     const n = NEURON_MAP[this.selected];
@@ -143,19 +158,20 @@ export class NeuronalUI {
     const isRe = this.data.reinforced.has(n.id);
     const isGen = this.data.genetic.has(n.id);
     const prog = neuronProgress(n.id, this.data.actionCounts);
-    const reqNames = n.requires.map((r) => NEURON_MAP[r].name).join(', ');
+    const reqNames = n.requires.map((r) => localizedName('neuron', r, NEURON_MAP[r].name)).join(', ');
     let status = '';
-    if (isGen) status = 'Genetic — inherited, permanent.';
-    else if (isRe) status = 'Reinforced — will carry to the next generation.';
-    else if (isUnlocked) status = `Unlocked. Reinforce for ${reinforceCost(n.id)} energy to keep it across generations.`;
-    else if (un.ok) status = `Available. Cost ${n.cost} energy.`;
-    else if (un.reason === 'energy') status = `Need ${n.cost} energy (have ${Math.floor(this.data.energy)}).`;
-    else if (un.reason === 'requires') status = `Requires: ${reqNames}.`;
-    else if (un.reason === 'locked') status = `Practise <b>${n.unlockCondition?.action}</b>: ${Math.floor(prog * 100)}% (${this.data.actionCounts[n.unlockCondition!.action] ?? 0}/${n.unlockCondition!.count}).`;
-    this.infoEl.innerHTML = `<div class="nname" style="color:${BRANCH_COLORS[n.branch]}">${n.name}</div><div class="req">${n.branch} · ${n.cost} energy${n.requires.length ? ` · requires ${reqNames}` : ''}</div><div class="desc">${n.description}<br><br>${status}</div>`;
+    if (isGen) status = t('neuronal.status.genetic');
+    else if (isRe) status = t('neuronal.status.reinforced');
+    else if (isUnlocked) status = t('neuronal.status.unlocked', { cost: reinforceCost(n.id) });
+    else if (un.ok) status = t('neuronal.status.available', { cost: n.cost });
+    else if (un.reason === 'energy') status = t('neuronal.status.needEnergy', { cost: n.cost, have: Math.floor(this.data.energy) });
+    else if (un.reason === 'requires') status = t('neuronal.status.requires', { names: reqNames });
+    else if (un.reason === 'locked') status = t('neuronal.status.practise', { action: t(`action.${n.unlockCondition!.action}`), pct: Math.floor(prog * 100), have: this.data.actionCounts[n.unlockCondition!.action] ?? 0, count: n.unlockCondition!.count });
+    const req = `${t('neuronal.req', { branch: t(`branch.${n.branch}`), cost: n.cost })}${n.requires.length ? ` · ${t('neuronal.requires', { names: reqNames })}` : ''}`;
+    this.infoEl.innerHTML = `<div class="nname" style="color:${BRANCH_COLORS[n.branch]}">${localizedName('neuron', n.id, n.name)}</div><div class="req">${req}</div><div class="desc">${localizedDescription('neuron', n.id, n.description)}<br><br>${status}</div>`;
     this.unlockBtn.disabled = !un.ok || isUnlocked;
     this.reinforceBtn.disabled = !isUnlocked || isRe || isGen || this.data.energy < reinforceCost(n.id);
-    this.reinforceBtn.textContent = `Reinforce (${reinforceCost(n.id)})`;
+    this.reinforceBtn.textContent = t('neuronal.reinforceCost', { cost: reinforceCost(n.id) });
   }
 
   private draw() {
@@ -234,7 +250,7 @@ export class NeuronalUI {
       ctx.fillStyle = unlocked || canBuy ? '#fff' : 'rgba(255,255,255,0.45)';
       ctx.font = '11px Segoe UI, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(n.name, p.x, p.y + r + 14);
+      ctx.fillText(localizedName('neuron', n.id, n.name), p.x, p.y + r + 14);
     }
     // pulses
     this.pulse = this.pulse.filter((pl) => pl.t < 1);
@@ -249,7 +265,7 @@ export class NeuronalUI {
       const p = this.nodePos(n.id);
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.strokeStyle = BRANCH_COLORS[n.branch];
-      const text = `${n.name} · ${n.cost}`;
+      const text = t('neuronal.hover', { name: localizedName('neuron', n.id, n.name), cost: n.cost });
       ctx.font = '13px Segoe UI, sans-serif';
       const tw = ctx.measureText(text).width + 16;
       ctx.beginPath(); ctx.roundRect(p.x - tw / 2, p.y - 44, tw, 24, 6); ctx.fill(); ctx.stroke();

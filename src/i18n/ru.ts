@@ -34,6 +34,8 @@ export const ru: Record<string, string> = {
   'settings.invertY': 'Инвертировать обзор по вертикали',
   'settings.showFps': 'Показывать частоту кадров',
   'settings.language': 'Язык',
+  'lang.en': 'English',
+  'lang.ru': 'Русский',
   'settings.autoNote': 'Автокачество снижает разрешение и дальность прорисовки при падении частоты кадров и снова повышает их, когда она стабильна.',
   'settings.done': 'Готово',
 

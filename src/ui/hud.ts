@@ -1,5 +1,6 @@
 import type { HominidData, ItemId, SenseKind } from '@/core/types';
 import { ITEMS } from '@/data/items';
+import { t, getLang, localizedName, locale, type Lang } from '@/i18n';
 
 export interface HudMarker {
   x: number; // screen px
@@ -38,6 +39,8 @@ export interface HudData {
   overcome: { found: number; needed: number; timeLeft: number } | null;
 }
 
+const COMBAT_KEYS: Record<NonNullable<HudData['combatPrompt']>, string> = { 'DODGE!': 'combat.dodge', 'STRIKE!': 'combat.strike', 'COUNTER!': 'combat.counter' };
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -49,9 +52,12 @@ export class Hud {
   readonly root: HTMLElement;
   private stats: Record<string, HTMLElement> = {};
   private statRows: Record<string, HTMLElement> = {};
+  private statLabels: Record<string, HTMLElement> = {};
   private conds: HTMLElement;
   private fearFill: HTMLElement;
   private dopFill: HTMLElement;
+  private fearLabel: HTMLElement;
+  private dopLabel: HTMLElement;
   private name: HTMLElement;
   private time: HTMLElement;
   private energy: HTMLElement;
@@ -72,6 +78,7 @@ export class Hud {
   private overcome: HTMLElement;
   private fpsEl: HTMLElement;
   private lastPrompt = '';
+  private lang: Lang | null = null;
   showFps = true;
 
   constructor(parent: HTMLElement) {
@@ -88,42 +95,45 @@ export class Hud {
 
     const top = el('div', 'hud-top');
     this.name = el('div', 'name', 'Ako');
-    this.time = el('div', 'time', 'Day 1 · 06:00');
-    this.energy = el('div', 'energy-n', '◈ 0 neuronal energy');
+    this.time = el('div', 'time', t('hud.day', { day: 1, time: '06:00' }));
+    this.energy = el('div', 'energy-n', t('hud.neuronalEnergy', { n: 0 }));
     this.senseLabel = el('div', 'time', '');
     top.append(this.name, this.time, this.energy, this.senseLabel);
     this.root.appendChild(top);
 
     const clan = el('div', 'hud-clan');
-    this.lineage = el('div', 'lineage', '10,000,000 years ago');
+    this.lineage = el('div', 'lineage', t('hud.yearsAgo', { years: (10_000_000).toLocaleString(locale()) }));
     const bar = el('div', 'bar');
     this.lineageFill = el('div', 'fill');
     bar.appendChild(this.lineageFill);
-    this.clanInfo = el('div', '', 'Generation 1 · 6 clan members');
+    this.clanInfo = el('div', '', t('hud.generation', { generation: 1, n: 6 }));
     clan.append(this.lineage, bar, this.clanInfo);
     this.root.appendChild(clan);
 
     const stats = el('div', 'hud-stats');
-    for (const [k, label] of [['health', 'Health'], ['energy', 'Energy'], ['hunger', 'Hunger'], ['thirst', 'Thirst']]) {
+    for (const k of ['health', 'energy', 'hunger', 'thirst']) {
       const row = el('div', `stat ${k}`);
-      row.innerHTML = `<span class="label">${label}</span><div class="bar"><div class="fill"></div></div>`;
+      row.innerHTML = `<span class="label">${t(`hud.${k}`)}</span><div class="bar"><div class="fill"></div></div>`;
       stats.appendChild(row);
       this.stats[k] = row.querySelector('.fill')!;
       this.statRows[k] = row;
+      this.statLabels[k] = row.querySelector('.label')!;
     }
     this.root.appendChild(stats);
     this.conds = el('div', 'hud-conditions');
     this.root.appendChild(this.conds);
 
     const fear = el('div', 'hud-fear');
-    fear.innerHTML = `<div class="stat fear"><span class="label">Fear</span><div class="bar"><div class="fill"></div></div></div><div class="stat dopamine"><span class="label">Dopamine</span><div class="bar"><div class="fill"></div></div></div>`;
+    fear.innerHTML = `<div class="stat fear"><span class="label">${t('hud.fear')}</span><div class="bar"><div class="fill"></div></div></div><div class="stat dopamine"><span class="label">${t('hud.dopamine')}</span><div class="bar"><div class="fill"></div></div></div>`;
     this.fearFill = fear.querySelector('.fear .fill')!;
     this.dopFill = fear.querySelector('.dopamine .fill')!;
+    this.fearLabel = fear.querySelector('.fear .label')!;
+    this.dopLabel = fear.querySelector('.dopamine .label')!;
     this.root.appendChild(fear);
 
     const hands = el('div', 'hud-hands');
-    this.handL = el('div', 'hand', '<span class="key">LEFT · Z</span><span class="item">empty</span>');
-    this.handR = el('div', 'hand', '<span class="key">RIGHT · V</span><span class="item">empty</span>');
+    this.handL = el('div', 'hand', `<span class="key">${t('hud.hand.left')}</span><span class="item">${t('hud.empty')}</span>`);
+    this.handR = el('div', 'hand', `<span class="key">${t('hud.hand.right')}</span><span class="item">${t('hud.empty')}</span>`);
     hands.append(this.handL, this.handR);
     this.root.appendChild(hands);
 
@@ -150,8 +160,9 @@ export class Hud {
     this.notify = el('div', 'hud-notify');
     this.root.appendChild(this.notify);
 
-    this.fpsEl = el('div', 'hud-controls', 'H help · Tab neurons · Q senses · Esc pause');
+    this.fpsEl = el('div', 'hud-controls', t('hud.controls'));
     this.root.appendChild(this.fpsEl);
+    this.lang = getLang();
   }
 
   set visible(v: boolean) { this.root.hidden = !v; }
@@ -164,26 +175,38 @@ export class Hud {
   }
 
   private itemName(id: ItemId | null): string {
-    return id ? ITEMS[id].name : 'empty';
+    return id ? localizedName('item', id, ITEMS[id].name) : t('hud.empty');
+  }
+
+  /** Re-render the static labels after a language change. */
+  private relabel() {
+    this.lang = getLang();
+    for (const k of Object.keys(this.statLabels)) this.statLabels[k].textContent = t(`hud.${k}`);
+    this.fearLabel.textContent = t('hud.fear');
+    this.dopLabel.textContent = t('hud.dopamine');
+    this.handL.querySelector('.key')!.textContent = t('hud.hand.left');
+    this.handR.querySelector('.key')!.textContent = t('hud.hand.right');
+    this.lastPrompt = '';
   }
 
   update(d: HudData) {
+    if (this.lang !== getLang()) this.relabel();
     const p = d.player;
     for (const k of ['health', 'energy', 'hunger', 'thirst'] as const) {
       const pct = Math.max(0, Math.min(1, p.stats[k] / Math.max(1, p.maxStats[k])));
       this.stats[k].style.width = `${pct * 100}%`;
       this.statRows[k].classList.toggle('low', pct < 0.2);
     }
-    this.conds.innerHTML = p.conditions.map((c) => `<span class="cond ${c.id}">${c.id}</span>`).join('');
+    this.conds.innerHTML = p.conditions.map((c) => `<span class="cond ${c.id}">${t(`cond.${c.id}`)}</span>`).join('');
     this.fearFill.style.width = `${p.fear}%`;
     this.dopFill.style.width = `${p.dopamine}%`;
-    this.name.textContent = `${p.name} · ${p.stage}${d.carriedBabies ? ` · carrying ${d.carriedBabies} baby` : ''}`;
-    this.time.textContent = `Day ${d.day} · ${d.time}`;
-    this.energy.textContent = `◈ ${Math.floor(d.energy)} neuronal energy`;
-    this.senseLabel.textContent = d.intelMode ? `Intelligence · ${d.activeSense.toUpperCase()}` : '';
-    this.lineage.textContent = `${d.yearsAgo.toLocaleString('en-US')} years ago`;
+    this.name.textContent = `${p.name} · ${t(`stage.${p.stage}`)}${d.carriedBabies ? ` · ${t('hud.carrying', { n: d.carriedBabies })}` : ''}`;
+    this.time.textContent = t('hud.day', { day: d.day, time: d.time });
+    this.energy.textContent = t('hud.neuronalEnergy', { n: Math.floor(d.energy) });
+    this.senseLabel.textContent = d.intelMode ? t('hud.intelligence', { sense: t(`sense.${d.activeSense}`) }) : '';
+    this.lineage.textContent = t('hud.yearsAgo', { years: d.yearsAgo.toLocaleString(locale()) });
     this.lineageFill.style.width = `${d.progress * 100}%`;
-    this.clanInfo.textContent = `Generation ${d.generation} · ${d.clanAlive} clan members`;
+    this.clanInfo.textContent = t('hud.generation', { generation: d.generation, n: d.clanAlive });
     this.handL.querySelector('.item')!.textContent = this.itemName(p.held.left);
     this.handR.querySelector('.item')!.textContent = this.itemName(p.held.right);
     this.handL.classList.toggle('has', !!p.held.left);
@@ -229,11 +252,11 @@ export class Hud {
     if (d.identifyProgress !== null) this.identifyFill.style.width = `${d.identifyProgress * 100}%`;
     this.combat.hidden = !d.combatPrompt;
     if (d.combatPrompt) {
-      this.combat.textContent = d.combatPrompt;
+      this.combat.textContent = t(COMBAT_KEYS[d.combatPrompt]);
       this.combat.className = `combat-prompt ${d.combatPrompt === 'DODGE!' ? '' : 'counter'}`;
     }
     this.overcome.hidden = !d.overcome;
-    if (d.overcome) this.overcome.textContent = `FIND THE LIGHTS ${d.overcome.found}/${d.overcome.needed} · ${Math.ceil(d.overcome.timeLeft)}s`;
-    this.fpsEl.textContent = `${this.showFps ? `${Math.round(d.fps)} fps · ` : ''}H help · Tab neurons · Q senses · Esc pause`;
+    if (d.overcome) this.overcome.textContent = t('hud.findLights', { found: d.overcome.found, needed: d.overcome.needed, s: Math.ceil(d.overcome.timeLeft) });
+    this.fpsEl.textContent = `${this.showFps ? `${t('hud.fps', { fps: Math.round(d.fps) })} · ` : ''}${t('hud.controls')}`;
   }
 }

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { ru } from '../../src/i18n/ru';
 
 declare global {
   interface Window { game: any }
@@ -431,6 +432,28 @@ test.describe('The Human Odyssey', () => {
     const ctrl = await page.evaluate(() => ({ s: window.game.controller.sensitivity, inv: window.game.controller.invertY, tree: window.game.world.veg.treeDistance }));
     expect(ctrl.s).toBeCloseTo(1.5);
     expect(ctrl.inv).toBe(true);
+  });
+  test('language switch to Russian applies immediately, persists, and switches back', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => !!window.game);
+    await expect(page.getByRole('button', { name: 'New Lineage' })).toBeVisible();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('[data-k=lang]').selectOption('ru');
+    await expect(page.getByRole('heading', { name: ru['settings.title'] })).toBeVisible();
+    await page.getByRole('button', { name: ru['settings.done'] }).click();
+    await expect(page.locator('.screen [data-a=new]')).toHaveText(ru['menu.new']);
+    await expect(page.locator('.screen [data-a=help]')).toHaveText(ru['menu.help']);
+    await page.reload();
+    await page.waitForFunction(() => !!window.game);
+    await expect(page.locator('.screen [data-a=new]')).toHaveText(ru['menu.new']);
+    expect(await page.evaluate(() => localStorage.getItem('human-odyssey-lang'))).toBe('ru');
+    await page.locator('.screen [data-a=settings]').click();
+    await page.locator('[data-k=lang]').selectOption('en');
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(page.getByRole('button', { name: 'New Lineage' })).toBeVisible();
+    await page.reload();
+    await page.waitForFunction(() => !!window.game);
+    await expect(page.getByRole('button', { name: 'New Lineage' })).toBeVisible();
   });
   test('landmarks exist, can be identified and appear on the map', async ({ page }) => {
     await startGame(page);

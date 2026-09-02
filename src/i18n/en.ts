@@ -35,6 +35,8 @@ export const en: Record<string, string> = {
   'settings.invertY': 'Invert vertical look',
   'settings.showFps': 'Show frame rate',
   'settings.language': 'Language',
+  'lang.en': 'English',
+  'lang.ru': 'Русский',
   'settings.autoNote': 'Auto quality lowers resolution and view distance when the frame rate drops, and raises them again when it is stable.',
   'settings.done': 'Done',
 

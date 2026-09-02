@@ -51,6 +51,18 @@ export function t(key: string, params?: Record<string, string | number>): string
   return interpolate(text, params);
 }
 
+/** Like `t`, but returns `fallback` (instead of the key) when the key is missing in every dictionary. */
+export function tOr(key: string, fallback: string, params?: Record<string, string | number>): string {
+  const lang = getLang();
+  const text = DICTS[lang][key] ?? en[key];
+  return interpolate(text ?? fallback, params);
+}
+
+/** BCP-47 locale for number/date formatting in the current language. */
+export function locale(): string {
+  return getLang() === 'ru' ? 'ru-RU' : 'en-US';
+}
+
 /** Translated data text (name/description) for the current language, or undefined when none exists. */
 export function tn(kind: DataKind, id: string, field: DataField): string | undefined {
   const table = DATA[getLang()];

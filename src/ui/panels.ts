@@ -3,8 +3,9 @@ import { ITEM_LIST } from '@/data/items';
 import { PLANT_LIST } from '@/data/plants';
 import { SPECIES_LIST } from '@/data/species';
 import { FEATS } from '@/data/feats';
-import { RECIPES, ALTERATIONS } from '@/systems/crafting';
+import { RECIPES, ALTERATIONS, type Recipe, type Alteration } from '@/systems/crafting';
 import { NEURON_MAP } from '@/data/neurons';
+import { t, tOr, localizedName, localizedDescription, locale } from '@/i18n';
 
 export type PanelKind = 'inventory' | 'clan' | 'map' | 'evolution';
 
@@ -27,6 +28,11 @@ export interface PanelData {
 const BIOME_RGB: Record<BiomeId, [number, number, number]> = {
   jungle: [40, 100, 40], savanna: [168, 150, 63], swamp: [70, 100, 60], lake: [40, 90, 130], cliffs: [125, 117, 104], beach: [200, 185, 140],
 };
+
+const TAB_KEYS: Record<PanelKind, string> = { inventory: 'panel.tab.knowledge', clan: 'panel.tab.clan', map: 'panel.tab.map', evolution: 'panel.tab.evolution' };
+
+const recipeText = (r: Recipe) => tOr(`recipe.${r.a}_${r.b}`, r.description);
+const alterationText = (a: Alteration) => tOr(`alteration.${a.from}`, a.description);
 
 export class Panels {
   readonly root: HTMLElement;
@@ -57,13 +63,13 @@ export class Panels {
     for (const k of ['inventory', 'clan', 'map', 'evolution'] as PanelKind[]) {
       const b = document.createElement('button');
       b.className = `btn ${k === kind ? 'active' : ''}`;
-      b.textContent = { inventory: 'Knowledge (I)', clan: 'Clan (T)', map: 'Map (M)', evolution: 'Evolution' }[k];
+      b.textContent = t(TAB_KEYS[k]);
       b.onclick = () => this.show(k, d);
       tabs.appendChild(b);
     }
     const closeBtn = document.createElement('button');
     closeBtn.className = 'btn small';
-    closeBtn.textContent = 'Close (Esc)';
+    closeBtn.textContent = t('panel.close');
     closeBtn.style.marginLeft = 'auto';
     closeBtn.onclick = () => d.onClose();
     tabs.appendChild(closeBtn);
@@ -83,30 +89,38 @@ export class Panels {
   private renderInventory(body: HTMLElement, d: PanelData) {
     const known = new Set(d.lineage.discoveries);
     const p = d.player;
-    const itemName = (id: string | null) => id ? ITEM_LIST.find((i) => i.id === id)?.name ?? id : 'empty';
+    const itemName = (id: string | null) => {
+      if (!id) return t('hud.empty');
+      const def = ITEM_LIST.find((i) => i.id === id);
+      return def ? localizedName('item', id, def.name) : id;
+    };
     const recipes = RECIPES.filter((r) => !r.ability || d.abilities.has(r.ability));
     const alts = ALTERATIONS.filter((a) => d.abilities.has(a.ability));
+    const unknownName = t('panel.knowledge.unknownName');
+    const unidentified = t('panel.knowledge.unidentified');
     body.innerHTML = `
-      <h2>Knowledge</h2>
-      <div class="row"><div class="card"><h3>Left hand</h3>${itemName(p.held.left)}</div><div class="card"><h3>Right hand</h3>${itemName(p.held.right)}</div></div>
-      <div class="muted">Known: ${known.size} discoveries · ${p.neurons.length} neurons this life (${p.reinforced.length} reinforced, ${p.genetic.length} genetic)</div>
-      <h3>Recipes you can perform (press 1 with both items held)</h3>
-      <div class="list">${recipes.map((r) => `<div class="entry"><b>${itemName(r.a)} + ${itemName(r.b)}</b>→ ${itemName(r.result)}<div class="tiny">${r.description}</div></div>`).join('') || '<div class="muted">Unlock Dexterity neurons to craft.</div>'}</div>
-      <h3>Alterations (press 1 with a single item)</h3>
-      <div class="list">${alts.map((a) => `<div class="entry"><b>${itemName(a.from)}</b>→ ${itemName(a.to)}<div class="tiny">${a.description}</div></div>`).join('') || '<div class="muted">Unlock Strip Branch / Grinder Making to alter items.</div>'}</div>
-      <h3>Items</h3>
-      <div class="list">${ITEM_LIST.map((i) => `<div class="entry ${known.has('item:' + i.id) ? '' : 'locked'}"><b>${known.has('item:' + i.id) ? i.name : '???'}</b><div class="tiny">${known.has('item:' + i.id) ? i.description : 'Not yet identified'}</div></div>`).join('')}</div>
-      <h3>Plants</h3>
-      <div class="list">${PLANT_LIST.map((i) => `<div class="entry ${known.has('plant:' + i.id) ? '' : 'locked'}"><b>${known.has('plant:' + i.id) ? i.name : '???'}</b><div class="tiny">${known.has('plant:' + i.id) ? i.description : 'Not yet identified'}</div></div>`).join('')}</div>
-      <h3>Animals</h3>
-      <div class="list">${SPECIES_LIST.map((i) => `<div class="entry ${known.has('animal:' + i.id) ? '' : 'locked'}"><b>${known.has('animal:' + i.id) ? i.name : '???'}</b><div class="tiny">${known.has('animal:' + i.id) ? `${i.behavior} · ${i.description}` : 'Not yet identified'}</div></div>`).join('')}</div>`;
+      <h2>${t('panel.knowledge.title')}</h2>
+      <div class="row"><div class="card"><h3>${t('panel.knowledge.leftHand')}</h3>${itemName(p.held.left)}</div><div class="card"><h3>${t('panel.knowledge.rightHand')}</h3>${itemName(p.held.right)}</div></div>
+      <div class="muted">${t('panel.knowledge.known', { discoveries: known.size, neurons: p.neurons.length, reinforced: p.reinforced.length, genetic: p.genetic.length })}</div>
+      <h3>${t('panel.knowledge.recipes')}</h3>
+      <div class="list">${recipes.map((r) => `<div class="entry"><b>${itemName(r.a)} + ${itemName(r.b)}</b>→ ${itemName(r.result)}<div class="tiny">${recipeText(r)}</div></div>`).join('') || `<div class="muted">${t('panel.knowledge.noRecipes')}</div>`}</div>
+      <h3>${t('panel.knowledge.alterations')}</h3>
+      <div class="list">${alts.map((a) => `<div class="entry"><b>${itemName(a.from)}</b>→ ${itemName(a.to)}<div class="tiny">${alterationText(a)}</div></div>`).join('') || `<div class="muted">${t('panel.knowledge.noAlterations')}</div>`}</div>
+      <h3>${t('panel.knowledge.items')}</h3>
+      <div class="list">${ITEM_LIST.map((i) => { const k = known.has('item:' + i.id); return `<div class="entry ${k ? '' : 'locked'}"><b>${k ? localizedName('item', i.id, i.name) : unknownName}</b><div class="tiny">${k ? localizedDescription('item', i.id, i.description) : unidentified}</div></div>`; }).join('')}</div>
+      <h3>${t('panel.knowledge.plants')}</h3>
+      <div class="list">${PLANT_LIST.map((i) => { const k = known.has('plant:' + i.id); return `<div class="entry ${k ? '' : 'locked'}"><b>${k ? localizedName('plant', i.id, i.name) : unknownName}</b><div class="tiny">${k ? localizedDescription('plant', i.id, i.description) : unidentified}</div></div>`; }).join('')}</div>
+      <h3>${t('panel.knowledge.animals')}</h3>
+      <div class="list">${SPECIES_LIST.map((i) => { const k = known.has('animal:' + i.id); return `<div class="entry ${k ? '' : 'locked'}"><b>${k ? localizedName('animal', i.id, i.name) : unknownName}</b><div class="tiny">${k ? `${t(`behavior.${i.behavior}`)} · ${localizedDescription('animal', i.id, i.description)}` : unidentified}</div></div>`; }).join('')}</div>`;
   }
 
   private renderClan(body: HTMLElement, d: PanelData) {
     const members = d.clan.members.filter((m) => !m.isOutsider);
     const bar = (v: number, max: number, c: string) => `<i><b style="width:${(v / Math.max(1, max)) * 100}%;background:${c}"></b></i>`;
-    body.innerHTML = `<h2>Clan</h2><div class="muted">${members.filter((m) => m.state !== 'dead').length} living members · settlement at (${Math.round(d.settlement.x)}, ${Math.round(d.settlement.z)}). Click a member to take control (adults and children only).</div>
-      <div class="list">${members.map((m) => `<div class="card ${m.isPlayer ? 'player' : ''} ${m.state === 'dead' ? 'dead' : ''}" data-id="${m.id}" style="cursor:${m.stage === 'baby' || m.state === 'dead' ? 'default' : 'pointer'}"><h3>${m.name}${m.isPlayer ? ' ★' : ''}</h3><div class="tiny">${m.sex} · ${m.stage} · ${m.ageYears}y · ${m.state}${m.carriedBaby ? ' · carrying baby' : ''}</div><div class="mini">${bar(m.stats.health, m.maxStats.health, '#ff7b6b')}${bar(m.stats.energy, m.maxStats.energy, '#7ad3ff')}${bar(m.stats.hunger, m.maxStats.hunger, '#ffd06b')}${bar(m.stats.thirst, m.maxStats.thirst, '#8bfff0')}</div><div class="tiny">${m.neurons.length} neurons · ${m.genetic.length} genetic${m.conditions.length ? ' · ' + m.conditions.map((c) => c.id).join(', ') : ''}</div></div>`).join('')}</div>`;
+    const info = (m: HominidData) => `${t('panel.clan.member', { sex: t(`sex.${m.sex}`), stage: t(`stage.${m.stage}`), age: m.ageYears, state: t(`state.${m.state}`) })}${m.carriedBaby ? ` · ${t('panel.clan.carryingBaby')}` : ''}`;
+    const neurons = (m: HominidData) => `${t('panel.clan.neurons', { n: m.neurons.length, genetic: m.genetic.length })}${m.conditions.length ? ' · ' + m.conditions.map((c) => t(`cond.${c.id}`)).join(', ') : ''}`;
+    body.innerHTML = `<h2>${t('panel.clan.title')}</h2><div class="muted">${t('panel.clan.summary', { n: members.filter((m) => m.state !== 'dead').length, x: Math.round(d.settlement.x), z: Math.round(d.settlement.z) })}</div>
+      <div class="list">${members.map((m) => `<div class="card ${m.isPlayer ? 'player' : ''} ${m.state === 'dead' ? 'dead' : ''}" data-id="${m.id}" style="cursor:${m.stage === 'baby' || m.state === 'dead' ? 'default' : 'pointer'}"><h3>${m.name}${m.isPlayer ? ' ★' : ''}</h3><div class="tiny">${info(m)}</div><div class="mini">${bar(m.stats.health, m.maxStats.health, '#ff7b6b')}${bar(m.stats.energy, m.maxStats.energy, '#7ad3ff')}${bar(m.stats.hunger, m.maxStats.hunger, '#ffd06b')}${bar(m.stats.thirst, m.maxStats.thirst, '#8bfff0')}</div><div class="tiny">${neurons(m)}</div></div>`).join('')}</div>`;
     body.querySelectorAll('[data-id]').forEach((c) => c.addEventListener('click', () => {
       const id = (c as HTMLElement).dataset.id!;
       const m = members.find((x) => x.id === id);
@@ -116,7 +130,7 @@ export class Panels {
 
   private renderMap(body: HTMLElement, d: PanelData) {
     const size = 256;
-    body.innerHTML = `<h2>Map</h2><div class="muted">Explored areas are bright; the unknown is dim. ★ settlement · ● you · ◆ landmarks you identified · ▲ predators (only when known nearby).</div>`;
+    body.innerHTML = `<h2>${t('panel.map.title')}</h2><div class="muted">${t('panel.map.legend')}</div>`;
     const canvas = document.createElement('canvas');
     canvas.width = size; canvas.height = size;
     canvas.className = 'map-canvas';
@@ -162,10 +176,11 @@ export class Panels {
   private renderEvolution(body: HTMLElement, d: PanelData) {
     const done = new Set(d.lineage.feats);
     const counts = d.lineage.actionCounts;
-    body.innerHTML = `<h2>Evolution</h2>
-      <div class="evo-timeline"><div class="fill" style="width:${((10_000_000 - d.lineage.yearsAgo) / 8_000_000) * 100}%"></div><div class="lbl">${d.lineage.yearsAgo.toLocaleString('en-US')} years ago · generation ${d.lineage.generation}</div></div>
-      <div class="muted">Feats reduce the time of the next evolution leap. Press <kbd>G</kbd> at the settlement with offspring to change generation or leap.</div>
-      <div class="list">${FEATS.map((f) => { const c = counts[f.action] ?? 0; return `<div class="entry feat ${done.has(f.id) ? 'done' : ''}"><b>${f.name}</b>${f.description}<div class="tiny">${Math.min(c, f.count)}/${f.count} · −${f.yearsReduced.toLocaleString('en-US')} years</div></div>`; }).join('')}</div>
-      <h3>Genetic neurons</h3><div class="muted">${d.player.genetic.length ? d.player.genetic.map((n) => NEURON_MAP[n]?.name ?? n).join(', ') : 'None yet. Reinforce neurons and change generation.'}</div>`;
+    const geneticNames = d.player.genetic.map((n) => NEURON_MAP[n] ? localizedName('neuron', n, NEURON_MAP[n].name) : n);
+    body.innerHTML = `<h2>${t('panel.evolution.title')}</h2>
+      <div class="evo-timeline"><div class="fill" style="width:${((10_000_000 - d.lineage.yearsAgo) / 8_000_000) * 100}%"></div><div class="lbl">${t('panel.evolution.timeline', { years: d.lineage.yearsAgo.toLocaleString(locale()), generation: d.lineage.generation })}</div></div>
+      <div class="muted">${t('panel.evolution.desc')}</div>
+      <div class="list">${FEATS.map((f) => { const c = counts[f.action] ?? 0; return `<div class="entry feat ${done.has(f.id) ? 'done' : ''}"><b>${localizedName('feat', f.id, f.name)}</b>${localizedDescription('feat', f.id, f.description)}<div class="tiny">${t('panel.evolution.progress', { done: Math.min(c, f.count), count: f.count, years: f.yearsReduced.toLocaleString(locale()) })}</div></div>`; }).join('')}</div>
+      <h3>${t('panel.evolution.genetic')}</h3><div class="muted">${geneticNames.length ? geneticNames.join(', ') : t('panel.evolution.noGenetic')}</div>`;
   }
 }

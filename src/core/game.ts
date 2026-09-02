@@ -20,6 +20,7 @@ import { PLANTS } from '@/data/plants';
 import { SPECIES } from '@/data/species';
 import { NEURON_MAP } from '@/data/neurons';
 import { FEAT_MAP } from '@/data/feats';
+import { t, localizedName, localizedDescription, locale } from '@/i18n';
 import {
   tickSurvival, consume, drinkWater, applyDamage, applyCondition, cureCondition, speedMultiplierFromConditions,
   type SurvivalModifiers, hasCondition,
@@ -53,6 +54,13 @@ interface CombatState {
 }
 
 const AREA_CELL = 64;
+
+/** Death cause id (from survival events) to localized text; unknown causes pass through. */
+function causeText(cause: string): string {
+  const key = `cause.${cause}`;
+  const s = t(key);
+  return s === key ? cause : s;
+}
 
 export class Game {
   readonly renderer: THREE.WebGLRenderer;
@@ -124,7 +132,7 @@ export class Game {
       onNewGame: () => this.newGame(),
       onContinue: () => this.continueGame(),
       onResume: () => this.resume(),
-      onSave: () => { this.save(); this.hud.toast('Game saved', 'good'); this.resume(); },
+      onSave: () => { this.save(); this.hud.toast(t('toast.saved'), 'good'); this.resume(); },
       onQuitToMenu: () => this.quitToMenu(),
       onSwitchMember: (id) => this.switchTo(id),
       onHelpClose: () => this.resume(),
@@ -145,7 +153,7 @@ export class Game {
       if (!document.pointerLockElement && this.state === 'playing' && this.input.wantPointerLock && this.sleepUntil === null) this.pause();
     });
     if (matchMedia('(pointer: coarse)').matches && !('onmousemove' in window)) {
-      setTimeout(() => this.hud.toast('A keyboard and mouse are required to play.', 'warn'), 500);
+      setTimeout(() => this.hud.toast(t('toast.needKeyboard'), 'warn'), 500);
     }
     this.resize();
     this.screens.showMenu(hasSave());
@@ -218,15 +226,15 @@ export class Game {
     // starting knowledge: the settlement area
     exploreArea(this.lineage, this.player.position, AREA_CELL);
     this.beginPlay();
-    this.hud.toast('Your clan is afraid of the unknown. Explore, sense (Q) and identify.', 'info');
-    setTimeout(() => this.hud.toast('Press H for controls.', 'info'), 2500);
+    this.hud.toast(t('toast.intro'), 'info');
+    setTimeout(() => this.hud.toast(t('toast.pressH'), 'info'), 2500);
   }
 
   async continueGame() {
     const save = readSave();
     if (!save) return this.newGame();
     this.state = 'loading';
-    const progress = this.screens.showLoading('Remembering');
+    const progress = this.screens.showLoading(t('app.loading.remembering'));
     const world = await this.buildWorld(save.worldSeed, progress);
     this.lineage = save.lineage;
     this.clan = save.clan;
@@ -239,7 +247,7 @@ export class Game {
     progress(0.9);
     this.setupEntities();
     this.beginPlay();
-    this.hud.toast('Welcome back.', 'good');
+    this.hud.toast(t('toast.welcomeBack'), 'good');
   }
 
   private setupEntities() {
@@ -369,7 +377,7 @@ export class Game {
     if (total >= 5) this.events.emit('neuronEnergy', { amount: total, total: this.lineage.neuronalEnergy });
     const feats = checkFeats(this.lineage);
     for (const f of feats) {
-      this.hud.toast(`Evolution feat: ${f.name}`, 'neuron');
+      this.hud.toast(t('toast.feat', { name: localizedName('feat', f.id, f.name) }), 'neuron');
       this.audio.play('unlock', 0.6);
     }
     return total;
@@ -380,12 +388,12 @@ export class Game {
     this.act('identify');
     if (r.isNew && kind === 'landmark' && id.startsWith('landmark:')) {
       this.lineage.neuronalEnergy += 40;
-      this.hud.toast(`Landmark: ${name}. ${LANDMARKS[id.slice(9) as LandmarkId]?.description ?? ''}`, 'discovery');
+      this.hud.toast(t('toast.landmark', { name, description: localizedDescription('landmark', id.slice(9), LANDMARKS[id.slice(9) as LandmarkId]?.description ?? '') }), 'discovery');
     }
     if (r.isNew) {
       this.lineage.neuronalEnergy += r.energy;
       addDopamine(this.player, discoveryDopamine(kind));
-      this.hud.toast(`Discovered: ${name}  +${r.energy} ◈`, 'discovery');
+      this.hud.toast(t('toast.discovered', { name, energy: r.energy }), 'discovery');
       this.audio.play('discover', 0.8);
       this.events.emit('discovery', { id, name, kind });
     } else {
@@ -400,7 +408,7 @@ export class Game {
     if (ok) {
       this.recomputeMods();
       this.audio.play('unlock');
-      this.hud.toast(`Neuron unlocked: ${NEURON_MAP[id].name}`, 'neuron');
+      this.hud.toast(t('toast.neuronUnlocked', { name: localizedName('neuron', id, NEURON_MAP[id].name) }), 'neuron');
       this.refreshNeuronal();
     }
     return ok;
@@ -451,7 +459,7 @@ export class Game {
       clan: this.clan, lineage: this.lineage, player: this.player, abilities: this.mods.abilities as Set<string>,
       biomeAt: (x, z) => w.terrain.biomeAt(x, z), heightAt: (x, z) => w.terrain.heightAt(x, z), worldSize: WORLD_SIZE,
       settlement: { x: w.settlement.x, z: w.settlement.z },
-      landmarks: w.landmarks.filter((l) => isKnown(this.lineage, `landmark:${l.def.id}`)).map((l) => ({ x: l.position.x, z: l.position.z, name: l.def.name })),
+      landmarks: w.landmarks.filter((l) => isKnown(this.lineage, `landmark:${l.def.id}`)).map((l) => ({ x: l.position.x, z: l.position.z, name: localizedName('landmark', l.def.id, l.def.name) })),
       animals: w.animals.filter((a) => a.data.alive && isKnown(this.lineage, `animal:${a.data.species}`) && Math.hypot(a.data.position.x - this.controller!.position.x, a.data.position.z - this.controller!.position.z) < 120).map((a) => ({ x: a.data.position.x, z: a.data.position.z, predator: SPECIES[a.data.species].behavior === 'predator' })),
       onSwitch: (id) => { this.panels.close(); this.switchTo(id); },
       onClose: () => this.resume(),
@@ -476,7 +484,7 @@ export class Game {
     this.screens.hideAll();
     this.hud.visible = true;
     this.state = 'playing';
-    this.hud.toast(`You are now ${target.name}.`, 'good');
+    this.hud.toast(t('toast.nowPlaying', { name: target.name }), 'good');
   }
 
   private syncBabyRigs() {
@@ -615,7 +623,7 @@ export class Game {
         this.clock.timeScale = 1;
         c.cancelAction();
         this.act('sleep');
-        this.hud.toast('A new day. Autosaved.', 'good');
+        this.hud.toast(t('toast.newDay'), 'good');
         this.save();
       }
       this.updateClan(dt);
@@ -673,9 +681,9 @@ export class Game {
             const died = applyDamage(p, dmg, frac ? 'fractured' : undefined, 0.6);
             this.damageFlash = 1;
             this.audio.play('hurt');
-            this.hud.toast(frac ? 'A bad fall. Your leg is fractured.' : 'A hard landing.', 'warn');
+            this.hud.toast(frac ? t('toast.badFall') : t('toast.hardLanding'), 'warn');
             this.act('fall');
-            if (died) this.onPlayerDeath('a fall');
+            if (died) this.onPlayerDeath(t('cause.fall'));
           }
           break;
         }
@@ -683,8 +691,8 @@ export class Game {
         case 'canopy': addDopamine(p, 3); break;
         case 'swim_start': this.audio.play('splash', 0.6); this.act('swim'); break;
         case 'drown_tick': {
-          if (applyDamage(p, 6 * simDt)) this.onPlayerDeath('drowning');
-          if (this.stepCount % 30 === 0) this.hud.toast('You cannot swim. Get out of the water!', 'warn');
+          if (applyDamage(p, 6 * simDt)) this.onPlayerDeath(t('cause.drowning'));
+          if (this.stepCount % 30 === 0) this.hud.toast(t('toast.cannotSwim'), 'warn');
           break;
         }
         case 'attack_hit': this.resolvePlayerAttack(); break;
@@ -704,7 +712,7 @@ export class Game {
       this.unknownExposure = 1;
       addDopamine(p, discoveryDopamine('area'));
       this.act('discover_area');
-      this.hud.toast('New territory discovered', 'discovery');
+      this.hud.toast(t('toast.newTerritory'), 'discovery');
       this.audio.play('discover', 0.5);
     }
     this.predatorNear = w.animals.some((a) => a.data.alive && SPECIES[a.data.species].behavior === 'predator' && (a.out.state === 'stalk' || a.out.state === 'attack') && Math.hypot(a.data.position.x - p.position.x, a.data.position.z - p.position.z) < 30);
@@ -722,7 +730,7 @@ export class Game {
     if (fearRes.panicStarted) {
       this.overcome = startOvercome(p, this.rng);
       w.spawnFearLights(c.position, this.overcome.lightsNeeded);
-      this.hud.toast('PANIC! Find the lights to calm down.', 'warn');
+      this.hud.toast(t('toast.panic'), 'warn');
       this.audio.play('fear');
       this.events.emit('panic', { started: true });
     }
@@ -739,8 +747,8 @@ export class Game {
       if (st !== 'active' || this.overcome.found >= this.overcome.lightsNeeded) {
         const ok = st === 'success' || this.overcome.found >= this.overcome.lightsNeeded;
         applyOvercomeResult(p, ok);
-        if (ok) { this.act('overcome_fear'); this.hud.toast('Fear overcome. Your mind is clear.', 'good'); this.audio.play('discover'); }
-        else this.hud.toast('The panic lingers...', 'warn');
+        if (ok) { this.act('overcome_fear'); this.hud.toast(t('toast.fearOvercome'), 'good'); this.audio.play('discover'); }
+        else this.hud.toast(t('toast.panicLingers'), 'warn');
         this.overcome = null;
         w.clearFearLights();
       }
@@ -773,7 +781,7 @@ export class Game {
 
     // Hot spring warms and dries
     const spring = w.landmarks.find((l) => l.def.id === 'hot_spring');
-    if (spring && hasCondition(p, 'cold') && spring.position.distanceTo(c.position) < 7) { cureCondition(p, 'cold'); this.hud.toast('The warm water drives the cold away.', 'good'); this.act('heal'); }
+    if (spring && hasCondition(p, 'cold') && spring.position.distanceTo(c.position) < 7) { cureCondition(p, 'cold'); this.hud.toast(t('toast.hotSpring'), 'good'); this.act('heal'); }
 
     // Ambient audio
     const biome = w.terrain.biomeAt(c.position.x, c.position.z);
@@ -796,26 +804,26 @@ export class Game {
       this.hud.toast(text, 'info');
       return true;
     };
-    if (hint('senses', this.playTime > 25 && this.lineage.discoveries.length === 0, 'Hold Q to use your senses. Unknown things glow blue: look at one and hold the left button to identify it.')) return;
-    if (hint('neurons', this.lineage.neuronalEnergy >= 40 && p.neurons.length === 0, 'You have neuronal energy. Press Tab to open the neuronal network and unlock a neuron.')) return;
-    if (hint('fear', p.fear > 45, 'Fear grows in unknown territory. Discoveries give dopamine; return to known ground to calm down.')) return;
-    if (hint('hunger', p.stats.hunger < 55, 'You are getting hungry. Harvest fruit from bushes and trees, then press F to eat.')) return;
-    if (hint('thirst', p.stats.thirst < 55, 'You are thirsty. Find the river or lake and click to drink.')) return;
-    if (hint('energy', p.stats.energy < 45, 'You are tired. Sleep at the settlement with N to restore energy.')) return;
-    if (hint('tool', (p.held.left === 'stone_granite' || p.held.right === 'stone_granite') && !this.hasAbility('craft_grinder'), 'Granite can become a grinder once you unlock Grinder Making in the Dexterity branch.')) return;
-    if (hint('stick', (p.held.left === 'stick' || p.held.right === 'stick') && !this.hasAbility('use_two_hands'), 'A stick sharpened on a grinder becomes a weapon. Ambidexterity (Tab) lets you combine both hands.')) return;
+    if (hint('senses', this.playTime > 25 && this.lineage.discoveries.length === 0, t('hint.senses'))) return;
+    if (hint('neurons', this.lineage.neuronalEnergy >= 40 && p.neurons.length === 0, t('hint.neurons'))) return;
+    if (hint('fear', p.fear > 45, t('hint.fear'))) return;
+    if (hint('hunger', p.stats.hunger < 55, t('hint.hunger'))) return;
+    if (hint('thirst', p.stats.thirst < 55, t('hint.thirst'))) return;
+    if (hint('energy', p.stats.energy < 45, t('hint.energy'))) return;
+    if (hint('tool', (p.held.left === 'stone_granite' || p.held.right === 'stone_granite') && !this.hasAbility('craft_grinder'), t('hint.tool'))) return;
+    if (hint('stick', (p.held.left === 'stick' || p.held.right === 'stick') && !this.hasAbility('use_two_hands'), t('hint.stick'))) return;
     const babyNear = [...w.hominids.values()].some((h) => h.data.stage === 'baby' && h.rig.root.parent === w.scene && h.rig.root.position.distanceTo(this.controller!.position) < 12);
-    if (hint('baby', babyNear && !p.carriedBaby && this.playTime > 60, 'Carry a baby (click on it) to gain neuronal energy faster. Keep it safe from eagles.')) return;
-    if (hint('generation', this.lineage.generation === 1 && this.playTime > 600, 'When you have babies and reinforced neurons, press G at the settlement to change generation.')) return;
+    if (hint('baby', babyNear && !p.carriedBaby && this.playTime > 60, t('hint.baby'))) return;
+    if (hint('generation', this.lineage.generation === 1 && this.playTime > 600, t('hint.generation'))) return;
   }
 
   private onSurvivalEvent(ev: import('@/systems/survival').SurvivalEvent) {
     switch (ev.type) {
-      case 'died': this.onPlayerDeath(ev.cause); break;
-      case 'condition_added': this.hud.toast(`You are ${ev.id}.`, 'warn'); this.audio.play('hurt', 0.5); break;
-      case 'condition_cured': this.hud.toast(`No longer ${ev.id}.`, 'good'); this.act('heal'); break;
-      case 'starving': if (this.stepCount % 200 === 0) this.hud.toast('You are starving.', 'warn'); break;
-      case 'dehydrated': if (this.stepCount % 200 === 0) this.hud.toast('You are dying of thirst.', 'warn'); break;
+      case 'died': this.onPlayerDeath(causeText(ev.cause)); break;
+      case 'condition_added': this.hud.toast(t('toast.conditionAdded', { condition: t(`cond.${ev.id}`) }), 'warn'); this.audio.play('hurt', 0.5); break;
+      case 'condition_cured': this.hud.toast(t('toast.conditionCured', { condition: t(`cond.${ev.id}`) }), 'good'); this.act('heal'); break;
+      case 'starving': if (this.stepCount % 200 === 0) this.hud.toast(t('toast.starving'), 'warn'); break;
+      case 'dehydrated': if (this.stepCount % 200 === 0) this.hud.toast(t('toast.dehydrated'), 'warn'); break;
       case 'exhausted': break;
       case 'condition_worsened': break;
     }
@@ -836,7 +844,7 @@ export class Game {
     this.controller?.rig.update(0.1, 'dead', 0);
     this.events.emit('playerDied', { cause });
     const lost = isLineageLost({ ...this.clan, members: this.clan.members.filter((m) => !m.isOutsider && m.stage !== 'baby') });
-    setTimeout(() => this.screens.showDeath(p, this.clan.members, lost, `Cause: ${cause}`), 1200);
+    setTimeout(() => this.screens.showDeath(p, this.clan.members, lost, t('death.cause', { cause })), 1200);
   }
 
   // ---------------------------------------------------------------- sensing
@@ -904,12 +912,12 @@ export class Game {
           this.discover(f.target.defId, name, (kind === 'water' ? 'landmark' : kind) as never);
           if (f.target.kind === 'animal') {
             const a = this.world!.animals.find((x) => x.data.uid === f.target.uid);
-            if (a && SPECIES[a.data.species].behavior === 'predator') this.hud.toast(`${name}: dangerous!`, 'warn');
+            if (a && SPECIES[a.data.species].behavior === 'predator') this.hud.toast(t('toast.dangerous', { name }), 'warn');
           }
         }
       } else if (this.input.mouseJustPressed(0)) {
-        if (this.intel.sense !== 'sight') this.hud.toast(`You need the ${this.intel.sense === 'smell' ? 'Scent Tracking' : 'Acute Hearing'} neuron to identify by ${this.intel.sense}.`, 'warn');
-        else this.hud.toast('Get closer to identify.', 'info');
+        if (this.intel.sense !== 'sight') this.hud.toast(t('toast.needSenseNeuron', { neuron: this.intel.sense === 'smell' ? localizedName('neuron', 'sen_smell', 'Scent Tracking') : localizedName('neuron', 'sen_hearing', 'Acute Hearing'), sense: t(`sense.by.${this.intel.sense}`) }), 'warn');
+        else this.hud.toast(t('toast.getCloser'), 'info');
       }
     } else this.intel.identifyT = 0;
   }
@@ -917,12 +925,12 @@ export class Game {
   private nameOf(defId: string): string {
     const [kind, id] = defId.split(':');
     switch (kind) {
-      case 'item': return ITEMS[id as ItemId]?.name ?? id;
-      case 'plant': return PLANTS[id as keyof typeof PLANTS]?.name ?? id;
-      case 'animal': return SPECIES[id as keyof typeof SPECIES]?.name ?? id;
-      case 'hominid': return id === 'outsider' ? 'Outsider hominid' : findMember(this.clan, id)?.name ?? 'Hominid';
-      case 'water': return 'Fresh water';
-      case 'landmark': return LANDMARKS[id as LandmarkId]?.name ?? id;
+      case 'item': { const d = ITEMS[id as ItemId]; return d ? localizedName('item', id, d.name) : id; }
+      case 'plant': { const d = PLANTS[id as keyof typeof PLANTS]; return d ? localizedName('plant', id, d.name) : id; }
+      case 'animal': { const d = SPECIES[id as keyof typeof SPECIES]; return d ? localizedName('animal', id, d.name) : id; }
+      case 'hominid': return id === 'outsider' ? t('target.outsiderHominid') : findMember(this.clan, id)?.name ?? t('target.hominid');
+      case 'water': return t('target.freshWater');
+      case 'landmark': { const d = LANDMARKS[id as LandmarkId]; return d ? localizedName('landmark', id, d.name) : id; }
     }
     return defId;
   }
@@ -944,66 +952,66 @@ export class Game {
       const score = d - align;
       if (!best || score < best.dist) best = { kind, ref, name, known, dist: score };
     };
-    for (const it of w.items) consider('item', it, it.position, ITEMS[it.id].name, isKnown(this.lineage, `item:${it.id}`));
+    for (const it of w.items) consider('item', it, it.position, localizedName('item', it.id, ITEMS[it.id].name), isKnown(this.lineage, `item:${it.id}`));
     for (const pl of w.veg.nearby(pos.x, pos.z, 6)) {
       const def = PLANTS[pl.plant];
       if (!def.yields) continue;
       const pp = pl.position.clone();
       if (pl.climbable) { pp.y = pl.climbable.position.y + pl.climbable.height; if (!c.canopy || c.canopy !== pl.climbable) continue; }
-      consider('plant', pl, pp, def.name, isKnown(this.lineage, `plant:${pl.plant}`), pl.climbable ? 6 : 3.2);
+      consider('plant', pl, pp, localizedName('plant', def.id, def.name), isKnown(this.lineage, `plant:${pl.plant}`), pl.climbable ? 6 : 3.2);
     }
     for (const a of w.animals) {
       const ap = new THREE.Vector3(a.data.position.x, a.data.position.y + 0.5, a.data.position.z);
-      consider(a.data.alive ? 'animal' : 'carcass', a, ap, SPECIES[a.data.species].name, isKnown(this.lineage, `animal:${a.data.species}`), a.data.alive ? 3.2 : 2.6);
+      consider(a.data.alive ? 'animal' : 'carcass', a, ap, localizedName('animal', a.data.species, SPECIES[a.data.species].name), isKnown(this.lineage, `animal:${a.data.species}`), a.data.alive ? 3.2 : 2.6);
     }
     for (const [, h] of w.hominids) {
       if (h.data.id === this.clan.playerId || h.data.state === 'dead') continue;
       if (h.data.stage === 'baby' && carriedBabyIds(this.player).includes(h.data.id)) continue;
       const hp = h.rig.root.getWorldPosition(new THREE.Vector3());
-      consider(h.data.stage === 'baby' ? 'baby' : 'hominid', h, hp, h.data.isOutsider ? 'Outsider' : h.data.name, true);
+      consider(h.data.stage === 'baby' ? 'baby' : 'hominid', h, hp, h.data.isOutsider ? t('target.outsider') : h.data.name, true);
     }
     // water
     const ahead = pos.clone().addScaledVector(fwd, 1.5);
-    if (w.terrain.heightAt(ahead.x, ahead.z) < WATER_LEVEL + 0.3 || c.isSwimming) consider('water', null, ahead, 'Water', isKnown(this.lineage, 'water'), 3);
-    if (!best && pos.distanceTo(w.settlement) < 5) consider('settlement', null, w.settlement, 'Settlement', true, 5);
+    if (w.terrain.heightAt(ahead.x, ahead.z) < WATER_LEVEL + 0.3 || c.isSwimming) consider('water', null, ahead, t('target.water'), isKnown(this.lineage, 'water'), 3);
+    if (!best && pos.distanceTo(w.settlement) < 5) consider('settlement', null, w.settlement, t('target.settlement'), true, 5);
     return best;
   }
 
   private handleInteractions() {
-    const t = this.currentTarget();
-    if (!t) return;
+    const tg = this.currentTarget();
+    if (!tg) return;
     const input = this.input;
     const p = this.player;
     const c = this.controller!;
     const w = this.world!;
     if (!input.mouseJustPressed(0)) return;
-    switch (t.kind) {
+    switch (tg.kind) {
       case 'item': {
-        const it = t.ref as WorldItem;
+        const it = tg.ref as WorldItem;
         const hand = this.freeHand();
-        if (!hand) { this.hud.toast('Your hands are full. Drop something (Z / V).', 'info'); return; }
+        if (!hand) { this.hud.toast(t('toast.handsFullDrop'), 'info'); return; }
         p.held[hand] = it.id;
         w.removeItem(it);
         this.audio.play('pickup');
         this.act('pickup');
-        if (!t.known) this.discover(`item:${it.id}`, ITEMS[it.id].name, 'item');
+        if (!tg.known) this.discover(`item:${it.id}`, localizedName('item', it.id, ITEMS[it.id].name), 'item');
         w.syncHeld(this.playerEntity!);
         break;
       }
       case 'plant': {
-        const pl = t.ref as import('@/world/vegetation').PlantInstance;
+        const pl = tg.ref as import('@/world/vegetation').PlantInstance;
         const def = PLANTS[pl.plant];
-        if (!canHarvestPlant(def, p.held)) { this.hud.toast(`You need a stick to reach the ${def.name}.`, 'info'); return; }
-        if (pl.yieldsLeft <= 0) { this.hud.toast(`Nothing left on the ${def.name}. It will regrow.`, 'info'); return; }
+        if (!canHarvestPlant(def, p.held)) { this.hud.toast(t('toast.needStick', { name: localizedName('plant', def.id, def.name) }), 'info'); return; }
+        if (pl.yieldsLeft <= 0) { this.hud.toast(t('toast.nothingLeftPlant', { name: localizedName('plant', def.id, def.name) }), 'info'); return; }
         const hand = this.freeHand();
-        if (!hand) { this.hud.toast('Your hands are full.', 'info'); return; }
+        if (!hand) { this.hud.toast(t('toast.handsFull'), 'info'); return; }
         c.startAction('eat', 0.7);
         if (w.veg.harvest(pl) && def.yields) {
           p.held[hand] = def.yields;
           this.audio.play('pickup');
           this.act('pickup');
-          if (!t.known) this.discover(`plant:${pl.plant}`, def.name, 'plant');
-          if (!isKnown(this.lineage, `item:${def.yields}`)) this.discover(`item:${def.yields}`, ITEMS[def.yields].name, 'item');
+          if (!tg.known) this.discover(`plant:${pl.plant}`, localizedName('plant', def.id, def.name), 'plant');
+          if (!isKnown(this.lineage, `item:${def.yields}`)) this.discover(`item:${def.yields}`, localizedName('item', def.yields, ITEMS[def.yields].name), 'item');
           if (pl.plant === 'beehive') {
             const bee = w.spawnAnimal('bee', { x: pl.position.x + 1, y: pl.position.y + 1.5, z: pl.position.z });
             provoke(bee.data, 1);
@@ -1017,29 +1025,29 @@ export class Game {
         drinkWater(p);
         this.audio.play('drink');
         this.act('drink');
-        if (!t.known) this.discover('water', 'Fresh water', 'landmark');
+        if (!tg.known) this.discover('water', t('target.freshWater'), 'landmark');
         break;
       }
-      case 'animal': this.attackAnimal(t.ref as AnimalEntity); break;
+      case 'animal': this.attackAnimal(tg.ref as AnimalEntity); break;
       case 'carcass': {
-        const a = t.ref as AnimalEntity;
+        const a = tg.ref as AnimalEntity;
         const hand = this.freeHand();
-        if (!hand) { this.hud.toast('Your hands are full.', 'info'); return; }
-        if (!a.drops.length) { this.hud.toast('Nothing left of the carcass.', 'info'); return; }
+        if (!hand) { this.hud.toast(t('toast.handsFull'), 'info'); return; }
+        if (!a.drops.length) { this.hud.toast(t('toast.nothingLeftCarcass'), 'info'); return; }
         const weapon = bestWeapon(p.held);
         const needTool = a.drops[0] === 'meat' && !(weapon && ['chopper', 'sharp_stick', 'bone_sharp', 'stone_obsidian'].includes(weapon)) && !this.hasAbility('eat_meat_raw');
-        if (needTool && this.rng() < 0.6) { this.hud.toast('The hide is tough. A sharp tool would help.', 'info'); c.startAction('eat', 0.6); return; }
+        if (needTool && this.rng() < 0.6) { this.hud.toast(t('toast.toughHide'), 'info'); c.startAction('eat', 0.6); return; }
         const item = a.drops.shift()!;
         p.held[hand] = item;
         c.startAction('eat', 0.6);
         this.audio.play('pickup');
         this.act('pickup');
-        if (!isKnown(this.lineage, `item:${item}`)) this.discover(`item:${item}`, ITEMS[item].name, 'item');
+        if (!isKnown(this.lineage, `item:${item}`)) this.discover(`item:${item}`, localizedName('item', item, ITEMS[item].name), 'item');
         w.syncHeld(this.playerEntity!);
         break;
       }
       case 'hominid': {
-        const h = t.ref as HominidEntity;
+        const h = tg.ref as HominidEntity;
         const d = h.data;
         c.startAction('groom', 1.4);
         if (d.isOutsider) {
@@ -1048,9 +1056,9 @@ export class Game {
           if (food) { p.held[food] = null; w.syncHeld(this.playerEntity!); }
           this.act('groom');
           this.audio.play('call', 0.4);
-          if (!isKnown(this.lineage, 'hominid:outsider')) this.discover('hominid:outsider', 'Outsider hominid', 'animal');
-          if (r.recruited) { this.hud.toast(`${d.name} joins your clan!`, 'good'); this.audio.play('unlock'); }
-          else this.hud.toast(`${d.name} trusts you a little more (${Math.round(r.bond * 100)}%).`, 'info');
+          if (!isKnown(this.lineage, 'hominid:outsider')) this.discover('hominid:outsider', t('target.outsiderHominid'), 'animal');
+          if (r.recruited) { this.hud.toast(t('toast.joins', { name: d.name }), 'good'); this.audio.play('unlock'); }
+          else this.hud.toast(t('toast.trusts', { name: d.name, pct: Math.round(r.bond * 100) }), 'info');
         } else if (canMate(p, d) && d.bond >= 0.99 && p.bond >= 0.5 && !p.held.left && !p.held.right && this.nearSettlement(20)) {
           const used = new Set(this.clan.members.map((m) => m.name));
           const baby = mate(p, d, this.rng, used);
@@ -1059,33 +1067,33 @@ export class Game {
           w.addHominid(baby);
           this.act('mate');
           this.audio.play('unlock');
-          this.hud.toast(`${p.name} and ${d.name} have a baby: ${baby.name}!`, 'good');
+          this.hud.toast(t('toast.baby', { a: p.name, b: d.name, baby: baby.name }), 'good');
           this.syncBabyRigs();
         } else {
           d.bond = Math.min(1, d.bond + 0.15);
           p.bond = Math.min(1, p.bond + 0.1);
           this.act('groom');
           this.audio.play('call', 0.3);
-          const hint = canMate(p, d) ? (this.nearSettlement(20) ? ' Keep bonding at the settlement to mate.' : ' Mate at the settlement.') : '';
-          this.hud.toast(`You groom ${d.name}.${hint}`, 'info');
+          const hint = canMate(p, d) ? (this.nearSettlement(20) ? t('toast.groom.mateHere') : t('toast.groom.mateAtSettlement')) : '';
+          this.hud.toast(t('toast.groom', { name: d.name, hint }), 'info');
         }
         break;
       }
       case 'baby': {
-        const h = t.ref as HominidEntity;
-        if (p.stage !== 'adult' && p.stage !== 'elder') { this.hud.toast('Only adults can carry babies.', 'info'); return; }
+        const h = tg.ref as HominidEntity;
+        if (p.stage !== 'adult' && p.stage !== 'elder') { this.hud.toast(t('toast.onlyAdultsCarry'), 'info'); return; }
         if (pickUpBaby(p, h.data, { carryTwo: this.hasAbility('carry_two_babies') })) {
           this.act('carry_baby');
           this.audio.play('pickup');
-          this.hud.toast(`You carry ${h.data.name}. Neuronal energy gain increased.`, 'good');
+          this.hud.toast(t('toast.carry', { name: h.data.name }), 'good');
           this.syncBabyRigs();
-        } else this.hud.toast('You already carry a baby.', 'info');
+        } else this.hud.toast(t('toast.alreadyCarry'), 'info');
         break;
       }
       case 'settlement': {
         const bid = dropBaby(p);
-        if (bid) { const b = findMember(this.clan, bid); if (b) b.position = { ...p.position }; this.syncBabyRigs(); this.hud.toast('Baby set down at the settlement.', 'info'); }
-        else this.hud.toast('Your settlement. Sleep here (N) or change generation (G).', 'info');
+        if (bid) { const b = findMember(this.clan, bid); if (b) b.position = { ...p.position }; this.syncBabyRigs(); this.hud.toast(t('toast.babySetDown'), 'info'); }
+        else this.hud.toast(t('toast.settlement'), 'info');
         break;
       }
     }
@@ -1110,11 +1118,11 @@ export class Game {
     const c = this.controller!;
     const consumable = (['right', 'left'] as const).find((s) => p.held[s] && (ITEMS[p.held[s]!].category === 'food' || ITEMS[p.held[s]!].category === 'medicine'));
     const side = consumable ?? (['right', 'left'] as const).find((s) => p.held[s]);
-    if (!side) { this.hud.toast('Nothing in hand.', 'info'); return; }
+    if (!side) { this.hud.toast(t('toast.nothingInHand'), 'info'); return; }
     const id = p.held[side]!;
     const def = ITEMS[id];
     if (def.category === 'food' || def.category === 'medicine') {
-      if (!def.nutrition && !def.cures) { this.hud.toast(`${def.name}: too hard to eat. Break it with a stone (hold both, press 1).`, 'info'); return; }
+      if (!def.nutrition && !def.cures) { this.hud.toast(t('toast.tooHard', { name: localizedName('item', def.id, def.name) }), 'info'); return; }
       const known = isKnown(this.lineage, `item:${id}`);
       const mods = this.survivalMods();
       const res = consume(p, { ...def, toxicity: (def.toxicity ?? 0) * (known ? 1 : 1.8) }, mods, this.rng);
@@ -1123,15 +1131,15 @@ export class Game {
       p.held[side] = null;
       w.syncHeld(this.playerEntity!);
       this.act('eat');
-      if (res.healed.length) { this.hud.toast(`${def.name} cured ${res.healed.join(', ')}.`, 'good'); this.act('heal'); }
-      if (res.poisoned) this.hud.toast(`The ${def.name} was bad. You feel sick.`, 'warn');
-      else if (!res.healed.length) this.hud.toast(`You eat the ${def.name}.`, 'info');
-      if (!known) this.discover(`item:${id}`, def.name, 'item');
+      if (res.healed.length) { this.hud.toast(t('toast.cured', { name: localizedName('item', def.id, def.name), conditions: res.healed.map((x) => t(`cond.${x}`)).join(', ') }), 'good'); this.act('heal'); }
+      if (res.poisoned) this.hud.toast(t('toast.wasBad', { name: localizedName('item', def.id, def.name) }), 'warn');
+      else if (!res.healed.length) this.hud.toast(t('toast.eat', { name: localizedName('item', def.id, def.name) }), 'info');
+      if (!known) this.discover(`item:${id}`, localizedName('item', id, def.name), 'item');
       if (def.id === 'kapok_fiber' && hasCondition(p, 'cold')) cureCondition(p, 'cold');
       return;
     }
     if (def.category === 'tool' || def.category === 'material') {
-      this.hud.toast(`${def.name}: hold it and click to strike, or press 1 to alter/combine.`, 'info');
+      this.hud.toast(t('toast.holdToStrike', { name: localizedName('item', def.id, def.name) }), 'info');
     }
   }
 
@@ -1143,8 +1151,8 @@ export class Game {
     if (p.held.left && p.held.right) {
       const check = canCombine(p.held.left, p.held.right, abilities);
       if (!check.ok) {
-        if (check.reason === 'ability') this.hud.toast(`You sense these could combine, but lack the skill (${check.recipe?.ability}).`, 'info');
-        else this.hud.toast('These do not go together.', 'info');
+        if (check.reason === 'ability') this.hud.toast(t('toast.lackSkill', { ability: check.recipe?.ability ? t(`ability.${check.recipe.ability}`) : '' }), 'info');
+        else this.hud.toast(t('toast.noCombine'), 'info');
         return;
       }
       const r = combine(p.held, abilities);
@@ -1153,18 +1161,18 @@ export class Game {
         p.held = r.held;
         this.audio.play('craft');
         this.act('craft');
-        this.hud.toast(`You made: ${ITEMS[r.result].name}`, 'good');
-        if (!isKnown(this.lineage, `item:${r.result}`)) this.discover(`item:${r.result}`, ITEMS[r.result].name, 'item');
+        this.hud.toast(t('toast.made', { name: localizedName('item', r.result, ITEMS[r.result].name) }), 'good');
+        if (!isKnown(this.lineage, `item:${r.result}`)) this.discover(`item:${r.result}`, localizedName('item', r.result, ITEMS[r.result].name), 'item');
         w.syncHeld(this.playerEntity!);
       }
       return;
     }
     const side = (['right', 'left'] as const).find((s) => p.held[s]);
-    if (!side) { this.hud.toast('Hold something to alter it.', 'info'); return; }
+    if (!side) { this.hud.toast(t('toast.holdToAlter'), 'info'); return; }
     const id = p.held[side]!;
     if (!canAlter(id, abilities)) {
       const alt = alter(id, new Set(['alter_stick', 'craft_grinder', 'alter_stone', 'craft_chopper', 'use_two_hands']));
-      this.hud.toast(alt ? `You could alter the ${ITEMS[id].name} with the right neuron.` : `The ${ITEMS[id].name} cannot be altered.`, 'info');
+      this.hud.toast(alt ? t('toast.couldAlter', { name: localizedName('item', id, ITEMS[id].name) }) : t('toast.cannotAlter', { name: localizedName('item', id, ITEMS[id].name) }), 'info');
       return;
     }
     const result = alter(id, abilities)!;
@@ -1172,8 +1180,8 @@ export class Game {
     p.held[side] = result;
     this.audio.play('craft');
     this.act('alter');
-    this.hud.toast(`You altered it into: ${ITEMS[result].name}`, 'good');
-    if (!isKnown(this.lineage, `item:${result}`)) this.discover(`item:${result}`, ITEMS[result].name, 'item');
+    this.hud.toast(t('toast.altered', { name: localizedName('item', result, ITEMS[result].name) }), 'good');
+    if (!isKnown(this.lineage, `item:${result}`)) this.discover(`item:${result}`, localizedName('item', result, ITEMS[result].name), 'item');
     w.syncHeld(this.playerEntity!);
   }
 
@@ -1196,7 +1204,7 @@ export class Game {
     const p = this.player;
     const threat = w.animals.find((a) => a.data.alive && (a.out.state === 'stalk' || a.out.state === 'attack') && Math.hypot(a.data.position.x - c.position.x, a.data.position.z - c.position.z) < 14 && SPECIES[a.data.species].behavior !== 'prey');
     if (threat) {
-      if (!this.hasAbility('intimidate')) { this.hud.toast('You scream, but it is not impressed. (Unlock Intimidation)', 'warn'); this.audio.play('call'); return; }
+      if (!this.hasAbility('intimidate')) { this.hud.toast(t('toast.screamNotImpressed'), 'warn'); this.audio.play('call'); return; }
       c.startAction('attack', 0.9);
       const clanNear = [...w.hominids.values()].filter((h) => !h.data.isOutsider && h.data.id !== p.id && h.data.stage !== 'baby' && h.rig.root.position.distanceTo(c.position) < 12).length;
       const ok = tryIntimidate(SPECIES[threat.data.species], clanNear, this.mods.abilities, bestWeapon(p.held), this.rng);
@@ -1206,9 +1214,9 @@ export class Game {
         threat.data.ai.state = 'flee';
         threat.data.ai.fleeUntil = 8;
         threat.data.ai.targetId = null;
-        this.hud.toast(`The ${SPECIES[threat.data.species].name} backs off!`, 'good');
+        this.hud.toast(t('toast.backsOff', { name: localizedName('animal', threat.data.species, SPECIES[threat.data.species].name) }), 'good');
         addDopamine(p, 10);
-      } else this.hud.toast('It is not afraid of you.', 'warn');
+      } else this.hud.toast(t('toast.notAfraid'), 'warn');
       return;
     }
     if (performance.now() - this.lastCall < 1500) return;
@@ -1220,8 +1228,8 @@ export class Game {
       if (h.data.id === p.id || h.data.isOutsider || h.data.stage === 'baby' || h.data.state === 'dead') continue;
       if (h.rig.root.position.distanceTo(c.position) < 45) { h.following = !h.following || !this.hasAbility('communicate_call') ? this.hasAbility('communicate_call') : h.following; if (this.hasAbility('communicate_call')) n++; }
     }
-    if (!this.hasAbility('communicate_call')) this.hud.toast('You call out. The clan listens but does not follow yet. (Unlock Clan Call)', 'info');
-    else this.hud.toast(n ? `${n} clan members follow you.` : 'No one is near enough to hear.', 'info');
+    if (!this.hasAbility('communicate_call')) this.hud.toast(t('toast.callNoNeuron'), 'info');
+    else this.hud.toast(n ? t('toast.callFollow', { n }) : t('toast.callNoOne'), 'info');
   }
 
   // -------------------------------------------------------------------- combat
@@ -1253,10 +1261,10 @@ export class Game {
       p.held[side] = null;
       this.world!.syncHeld(this.playerEntity!);
       this.audio.play('break');
-      this.hud.toast(`Your ${ITEMS[weapon].name} broke!`, 'warn');
+      this.hud.toast(t('toast.weaponBroke', { name: localizedName('item', weapon, ITEMS[weapon].name) }), 'warn');
     }
     if (killed) this.onAnimalKilled(a);
-    else if (!isKnown(this.lineage, `animal:${a.data.species}`)) this.discover(`animal:${a.data.species}`, SPECIES[a.data.species].name, 'animal');
+    else if (!isKnown(this.lineage, `animal:${a.data.species}`)) this.discover(`animal:${a.data.species}`, localizedName('animal', a.data.species, SPECIES[a.data.species].name), 'animal');
   }
 
   private onAnimalKilled(a: AnimalEntity) {
@@ -1265,11 +1273,11 @@ export class Game {
     a.corpseTimer = 240;
     a.telegraph = null;
     if (this.combat.telegraph?.attacker === a) this.combat.telegraph = null;
-    this.hud.toast(`You killed the ${def.name}!`, 'good');
+    this.hud.toast(t('toast.killed', { name: localizedName('animal', def.id, def.name) }), 'good');
     this.audio.play('roar', 0.3);
     this.act('kill');
     addDopamine(this.player, 15);
-    if (!isKnown(this.lineage, `animal:${a.data.species}`)) this.discover(`animal:${a.data.species}`, def.name, 'animal');
+    if (!isKnown(this.lineage, `animal:${a.data.species}`)) this.discover(`animal:${a.data.species}`, localizedName('animal', def.id, def.name), 'animal');
   }
 
   private updateAnimals(dt: number) {
@@ -1335,8 +1343,8 @@ export class Game {
           if (h && h.data.state !== 'dead' && this.rng() < 0.7) {
             const died = applyDamage(h.data, hitDamage(def, h.data.maxStats.health) * 0.6, def.inflicts);
             if (h.data.stage === 'baby' && def.id === 'eagle') { h.data.stats.health = 0; }
-            if (died || h.data.stats.health <= 0) { h.data.state = 'dead'; h.rig.update(0.1, 'dead', 0); this.hud.toast(`${h.data.name} was killed by a ${def.name}.`, 'warn'); }
-            else if (d2 < 40 * 40) this.hud.toast(`${h.data.name} is attacked by a ${def.name}!`, 'warn');
+            if (died || h.data.stats.health <= 0) { h.data.state = 'dead'; h.rig.update(0.1, 'dead', 0); this.hud.toast(t('toast.memberKilled', { member: h.data.name, name: localizedName('animal', def.id, def.name) }), 'warn'); }
+            else if (d2 < 40 * 40) this.hud.toast(t('toast.memberAttacked', { member: h.data.name, name: localizedName('animal', def.id, def.name) }), 'warn');
           }
         }
       }
@@ -1349,15 +1357,15 @@ export class Game {
     const c = this.controller!;
     cb.counterWindow = Math.max(0, cb.counterWindow - dt);
     if (!cb.telegraph) return;
-    const { attacker, t } = cb.telegraph;
+    const { attacker, t: tele } = cb.telegraph;
     const def = SPECIES[attacker.data.species];
     if (!attacker.data.alive) { cb.telegraph = null; attacker.telegraph = null; return; }
     const dist = Math.hypot(attacker.data.position.x - c.position.x, attacker.data.position.z - c.position.z);
-    if (tickTelegraph(t, dt) === 'strike') {
+    if (tickTelegraph(tele, dt) === 'strike') {
       attacker.telegraph = null;
       cb.telegraph = null;
       if (dist > def.attackRange + 2.5 || c.isClimbing || (c.canopy && !def.flying)) { return; }
-      const outcome = resolveDodge(t, cb.dodgeInput, this.mods.dodgeWindow);
+      const outcome = resolveDodge(tele, cb.dodgeInput, this.mods.dodgeWindow);
       if (dodgeIsHit(outcome)) {
         const dmg = hitDamage(def, p.maxStats.health, p.stage === 'child' ? 1.4 : 1);
         const died = applyDamage(p, dmg, def.inflicts, 0.5);
@@ -1365,20 +1373,20 @@ export class Game {
         c.shake = 0.6;
         this.audio.play('hurt');
         p.fear = Math.min(100, p.fear + 12);
-        this.hud.toast(`The ${def.name} hits you!${def.inflicts ? ` You are ${def.inflicts}.` : ''}`, 'warn');
-        if (died) this.onPlayerDeath(`killed by a ${def.name}`);
+        this.hud.toast(t('toast.hitsYou', { name: localizedName('animal', def.id, def.name) }) + (def.inflicts ? t('toast.youAre', { condition: t(`cond.${def.inflicts}`) }) : ''), 'warn');
+        if (died) this.onPlayerDeath(t('cause.killedBy', { name: localizedName('animal', def.id, def.name) }));
         // eagle snatches carried baby
         if (def.id === 'eagle' && carriedBabyIds(p).length && this.rng() < 0.3) {
           const bid = dropBaby(p);
           const b = bid ? findMember(this.clan, bid) : null;
-          if (b) { b.state = 'dead'; this.hud.toast(`The eagle took ${b.name}!`, 'warn'); this.world!.removeHominid(b.id); }
+          if (b) { b.state = 'dead'; this.hud.toast(t('toast.eagleTook', { name: b.name }), 'warn'); this.world!.removeHominid(b.id); }
         }
       } else {
         this.act('dodge');
         addDopamine(p, 5);
         this.audio.play('dodge');
-        if (dodgeAllowsCounter(outcome) && this.hasAbility('counter_attack')) { cb.counterWindow = 1.4; this.hud.toast('Perfect dodge! COUNTER now!', 'good'); }
-        else this.hud.toast(outcome === 'perfect' ? 'Perfect dodge!' : 'Dodged!', 'good');
+        if (dodgeAllowsCounter(outcome) && this.hasAbility('counter_attack')) { cb.counterWindow = 1.4; this.hud.toast(t('toast.perfectCounter'), 'good'); }
+        else this.hud.toast(outcome === 'perfect' ? t('toast.perfectDodge') : t('toast.dodged'), 'good');
         if (cb.counterWindow > 0) this.pendingTarget = attacker;
       }
     }
@@ -1479,17 +1487,17 @@ export class Game {
   // ------------------------------------------------------- sleep & generation
   private trySleep() {
     const p = this.player;
-    if (!this.nearSettlement(12) && !this.hasAbility('sleep_anywhere')) { this.hud.toast('Sleep at the settlement (or unlock Safe Landing to sleep anywhere).', 'info'); return; }
-    if (p.stats.energy > p.maxStats.energy * 0.8 && !this.clock.isNight) { this.hud.toast('You are not tired.', 'info'); return; }
+    if (!this.nearSettlement(12) && !this.hasAbility('sleep_anywhere')) { this.hud.toast(t('toast.sleepAtSettlement'), 'info'); return; }
+    if (p.stats.energy > p.maxStats.energy * 0.8 && !this.clock.isNight) { this.hud.toast(t('toast.notTired'), 'info'); return; }
     this.sleepUntil = 0.27;
     this.controller!.startAction('sleep', 9999);
     this.audio.play('sleep');
-    this.hud.toast('You curl up and sleep...', 'info');
+    this.hud.toast(t('toast.sleep'), 'info');
     if (this.clock.timeOfDay > 0.27) { /* sleep through night: wrap */ }
   }
 
   private tryGeneration() {
-    if (!this.nearSettlement(15)) { this.hud.toast('Return to the settlement to change generation.', 'info'); return; }
+    if (!this.nearSettlement(15)) { this.hud.toast(t('toast.returnForGeneration'), 'info'); return; }
     const members = this.clan.members.filter((m) => !m.isOutsider && m.state !== 'dead');
     const offspring = members.filter((m) => m.stage === 'baby' || m.stage === 'child').length;
     const adults = members.filter((m) => m.stage === 'adult').length;
@@ -1526,21 +1534,21 @@ export class Game {
         const r = evolutionLeap(this.clan, this.lineage, this.rng, since);
         this.lineage.featsAtLastLeap = this.lineage.feats.length;
         res = r.generation;
-        lines.push(`The lineage leaps <b>${r.yearsAdvanced.toLocaleString('en-US')} years</b> forward. Now ${this.lineage.yearsAgo.toLocaleString('en-US')} years ago.`);
+        lines.push(t('gen.line.leap', { years: r.yearsAdvanced.toLocaleString(locale()), yearsAgo: this.lineage.yearsAgo.toLocaleString(locale()) }));
       } else {
         res = generationChange(this.clan, this.lineage, this.rng);
-        lines.push(`Fifteen years pass. Generation ${this.lineage.generation}.`);
+        lines.push(t('gen.line.years', { generation: this.lineage.generation }));
       }
-      if (res.died.length) lines.push(`Passed away: ${res.died.map((id) => this.nameFromAny(id)).join(', ')}.`);
-      if (res.matured.length) lines.push(`Grew up: ${res.matured.map((id) => this.nameFromAny(id)).join(', ')}.`);
-      for (const m of res.mutations) lines.push(`Mutation! ${this.nameFromAny(m.hominidId)} is born with <b>${NEURON_MAP[m.neuron]?.name ?? m.neuron}</b>.`);
+      if (res.died.length) lines.push(t('gen.line.died', { names: res.died.map((id) => this.nameFromAny(id)).join(', ') }));
+      if (res.matured.length) lines.push(t('gen.line.matured', { names: res.matured.map((id) => this.nameFromAny(id)).join(', ') }));
+      for (const m of res.mutations) lines.push(t('gen.line.mutation', { name: this.nameFromAny(m.hominidId), neuron: NEURON_MAP[m.neuron] ? localizedName('neuron', m.neuron, NEURON_MAP[m.neuron].name) : m.neuron }));
       const lost = res.lostNeurons.reduce((n, l) => n + l.neurons.length, 0);
-      if (lost) lines.push(`${lost} un-reinforced neurons were forgotten.`);
-      lines.push(`You now play as <b>${this.nameFromAny(res.newPlayerId)}</b>.`);
+      if (lost) lines.push(t('gen.line.forgotten', { n: lost }));
+      lines.push(t('gen.line.newPlayer', { name: this.nameFromAny(res.newPlayerId) }));
     } catch (e) {
-      lines = [`${(e as Error).message === 'no_offspring' ? 'You need a baby or child in the clan.' : String(e)}`];
+      lines = [`${(e as Error).message === 'no_offspring' ? t('gen.line.noOffspring') : String(e)}`];
       this.clan.members.push(...outsiders);
-      this.screens.showGenerationResult({ title: 'Not yet', lines, onClose: () => this.resume() });
+      this.screens.showGenerationResult({ title: t('gen.result.notYet'), lines, onClose: () => this.resume() });
       return;
     }
     this.clan.members.push(...outsiders);
@@ -1561,7 +1569,7 @@ export class Game {
     this.save();
     const won = hasWon(this.lineage);
     this.screens.showGenerationResult({
-      title: leap ? 'Evolution Leap' : 'A New Generation',
+      title: leap ? t('gen.result.leap') : t('gen.result.new'),
       lines,
       onClose: () => { if (won) { this.state = 'win'; this.screens.showWin(this.lineage); } else this.resume(); },
     });
@@ -1590,7 +1598,7 @@ export class Game {
         markers.push({
           x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight,
           sense: this.intel.sense, known: d.target.known,
-          label: d.target.known ? this.nameOf(d.target.defId) : `Unknown ${d.target.kind}`,
+          label: d.target.known ? this.nameOf(d.target.defId) : t('prompt.unknown', { kind: t(`kind.${d.target.kind}`) }),
           focus: d === this.intel.focus, visible,
         });
       }
@@ -1598,27 +1606,27 @@ export class Game {
     let prompt: HudData['prompt'] = null;
     if (this.intel.active) {
       const f = this.intel.focus;
-      prompt = f ? { target: f.target.known ? this.nameOf(f.target.defId) : `Unknown ${f.target.kind}`, unknown: !f.target.known, actions: f.canIdentify ? [{ key: 'LMB', label: 'hold to identify' }] : [{ key: '', label: this.intel.sense === 'sight' ? 'get closer' : 'need neuron to identify' }] }
-        : { target: `${this.intel.sense === 'sight' ? 'Looking' : this.intel.sense === 'smell' ? 'Smelling' : 'Listening'}...`, unknown: false, actions: [{ key: 'E', label: 'smell' }, { key: 'R', label: 'listen' }] };
+      prompt = f ? { target: f.target.known ? this.nameOf(f.target.defId) : t('prompt.unknown', { kind: t(`kind.${f.target.kind}`) }), unknown: !f.target.known, actions: f.canIdentify ? [{ key: t('key.lmb'), label: t('prompt.identify') }] : [{ key: '', label: this.intel.sense === 'sight' ? t('prompt.getCloser') : t('prompt.needNeuron') }] }
+        : { target: this.intel.sense === 'sight' ? t('prompt.looking') : this.intel.sense === 'smell' ? t('prompt.smelling') : t('prompt.listening'), unknown: false, actions: [{ key: 'E', label: t('prompt.smell') }, { key: 'R', label: t('prompt.listen') }] };
     } else if (!c.isBusy) {
-      const t = this.currentTarget();
-      if (t) {
+      const tg = this.currentTarget();
+      if (tg) {
         const actions: { key: string; label: string }[] = [];
-        switch (t.kind) {
-          case 'item': actions.push({ key: 'LMB', label: 'pick up' }); break;
-          case 'plant': actions.push({ key: 'LMB', label: 'harvest' }); break;
-          case 'water': actions.push({ key: 'LMB', label: 'drink' }); break;
-          case 'animal': actions.push({ key: 'LMB', label: 'attack' }, { key: 'RMB', label: 'dodge' }, { key: 'C', label: 'intimidate' }); break;
-          case 'carcass': actions.push({ key: 'LMB', label: 'take meat' }); break;
-          case 'hominid': actions.push({ key: 'LMB', label: (t.ref as HominidEntity).data.isOutsider ? 'groom / offer food' : 'groom' }); break;
-          case 'baby': actions.push({ key: 'LMB', label: 'carry' }); break;
-          case 'settlement': actions.push({ key: 'N', label: 'sleep' }, { key: 'G', label: 'generation' }, { key: 'LMB', label: 'set baby down' }); break;
+        switch (tg.kind) {
+          case 'item': actions.push({ key: t('key.lmb'), label: t('prompt.pickup') }); break;
+          case 'plant': actions.push({ key: t('key.lmb'), label: t('prompt.harvest') }); break;
+          case 'water': actions.push({ key: t('key.lmb'), label: t('prompt.drink') }); break;
+          case 'animal': actions.push({ key: t('key.lmb'), label: t('prompt.attack') }, { key: t('key.rmb'), label: t('prompt.dodge') }, { key: 'C', label: t('prompt.intimidate') }); break;
+          case 'carcass': actions.push({ key: t('key.lmb'), label: t('prompt.takeMeat') }); break;
+          case 'hominid': actions.push({ key: t('key.lmb'), label: (tg.ref as HominidEntity).data.isOutsider ? t('prompt.groomOffer') : t('prompt.groom') }); break;
+          case 'baby': actions.push({ key: t('key.lmb'), label: t('prompt.carry') }); break;
+          case 'settlement': actions.push({ key: 'N', label: t('prompt.sleep') }, { key: 'G', label: t('prompt.generation') }, { key: t('key.lmb'), label: t('prompt.setBabyDown') }); break;
         }
-        prompt = { target: t.known ? t.name : `Unknown ${t.kind === 'carcass' ? 'carcass' : t.kind}`, unknown: !t.known, actions };
+        prompt = { target: tg.known ? tg.name : t('prompt.unknown', { kind: t(`kind.${tg.kind}`) }), unknown: !tg.known, actions };
       }
     }
     const held = p.held.right ?? p.held.left;
-    if (!prompt && held && !c.isBusy) prompt = { target: ITEMS[held].name, unknown: false, actions: [{ key: 'F', label: 'use / eat' }, { key: '1', label: 'alter / combine' }] };
+    if (!prompt && held && !c.isBusy) prompt = { target: localizedName('item', held, ITEMS[held].name), unknown: false, actions: [{ key: 'F', label: t('prompt.use') }, { key: '1', label: t('prompt.alter') }] };
 
     const night = this.clock.isNight ? 1 : 0;
     const data: HudData = {
