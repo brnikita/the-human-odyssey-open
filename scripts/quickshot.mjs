@@ -4,7 +4,9 @@ const out = process.argv[3] || 'quick.png';
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+if (process.env.LANG_RU) await page.addInitScript(() => localStorage.setItem('human-odyssey-lang', 'ru'));
 await page.goto(url);
+if (process.env.MENU_SHOT) { await page.waitForFunction(() => !!window.game); await page.waitForTimeout(800); await page.screenshot({ path: process.env.MENU_SHOT }); }
 await page.waitForFunction(() => !!window.game);
 await page.evaluate(async () => { await window.game.api.newGame(42); });
 await page.waitForFunction(() => window.game.state === 'playing', null, { timeout: 120000 });

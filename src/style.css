@@ -66,7 +66,7 @@ button { font-family: inherit; }
 #hud * { pointer-events: none; }
 .hud-stats { position: absolute; left: 22px; bottom: 22px; display: flex; flex-direction: column; gap: 6px; width: 260px; }
 .stat { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.stat .label { width: 56px; text-align: right; }
+.stat .label { width: 76px; text-align: right; white-space: nowrap; }
 .stat .bar { flex: 1; height: 9px; background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 5px; overflow: hidden; }
 .stat .fill { height: 100%; width: 100%; transition: width 0.2s; border-radius: 5px; }
 .stat.health .fill { background: linear-gradient(90deg, #c23b3b, #ff7b6b); }
