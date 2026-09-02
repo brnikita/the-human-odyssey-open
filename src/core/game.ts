@@ -5,6 +5,7 @@ import { GameClock } from './clock';
 import { EventBus } from './events';
 import { AudioEngine } from './audio';
 import { hasSave, readSave, writeSave, SAVE_VERSION } from './save';
+import { loadSettings, saveSettings, qualityParams, type Settings } from './settings';
 import { GameWorld, type AnimalEntity, type HominidEntity, type WorldItem } from '@/world/gameWorld';
 import { WATER_LEVEL, WORLD_SIZE } from '@/world/terrain';
 import { Sky } from '@/world/sky';
@@ -89,6 +90,7 @@ export class Game {
   private sleepUntil: number | null = null;
   private predatorNear = false;
   private lowQuality = false;
+  settings: Settings = loadSettings();
   private unknownExposure = 0;
   private hintsShown = new Set<string>();
   private hintTimer = 0;
@@ -126,6 +128,8 @@ export class Game {
       onSwitchMember: (id) => this.switchTo(id),
       onHelpClose: () => this.resume(),
       onToggleMute: () => { this.audio.muted = !this.audio.muted; return this.audio.muted; },
+      getSettings: () => this.settings,
+      onSettingsChange: (st) => this.applySettings(st),
     });
     this.neuronalUI = new NeuronalUI(uiRoot, {
       onUnlock: (id) => this.unlock(id),
@@ -145,6 +149,7 @@ export class Game {
     this.resize();
     this.screens.showMenu(hasSave());
     this.input.wantPointerLock = false;
+    this.applySettings(this.settings);
     canvas.addEventListener('mousedown', () => { this.audio.init(); this.audio.resume(); }, { once: true });
     window.addEventListener('keydown', () => { this.audio.init(); this.audio.resume(); }, { once: true });
     (window as unknown as { game: Game }).game = this;
@@ -188,6 +193,7 @@ export class Game {
     await tick(0.6);
     this.rng = mulberry32(seed ^ 0x51ed27);
     if (this.lowQuality) { const v = this.world.veg; v.treeDistance = 120; v.bushDistance = 60; v.grassDistance = 40; v.shadowDistance = 0; }
+    else this.applySettings(this.settings);
     return this.world;
   }
 
@@ -251,6 +257,8 @@ export class Game {
     const ent = world.hominids.get(p.id)!;
     this.controller = new PlayerController(world.terrain, world.veg, ent.rig);
     this.controller.teleport(p.position.x, p.position.z);
+    this.controller.sensitivity = this.settings.sensitivity;
+    this.controller.invertY = this.settings.invertY;
     this.controller.camYaw = Math.atan2(world.settlement.x - p.position.x, world.settlement.z - p.position.z) + Math.PI;
     this.recomputeMods();
     this.syncBabyRigs();
@@ -504,6 +512,29 @@ export class Game {
     this.input.endFrame();
   }
 
+  /** Apply and persist player settings. */
+  applySettings(st: Settings) {
+    this.settings = st;
+    saveSettings(st);
+    this.audio.volume = st.volume;
+    if (this.controller) { this.controller.sensitivity = st.sensitivity; this.controller.invertY = st.invertY; }
+    this.hud.showFps = st.showFps;
+    if (st.quality !== 'auto' && !this.lowQuality) {
+      const q = qualityParams(st.quality);
+      this.pixelRatio = q.pixelRatio;
+      this.renderer.setPixelRatio(q.pixelRatio);
+      this.renderer.shadowMap.enabled = q.shadows;
+      const w = this.world;
+      if (w) {
+        w.veg.treeDistance = q.treeDistance; w.veg.bushDistance = q.bushDistance; w.veg.grassDistance = q.grassDistance; w.veg.shadowDistance = q.shadowDistance;
+        if (w.sky.sun.shadow.mapSize.x !== q.shadowMap) { w.sky.sun.shadow.mapSize.set(q.shadowMap, q.shadowMap); w.sky.sun.shadow.map?.dispose(); w.sky.sun.shadow.map = null; }
+        w.scene.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m) m.needsUpdate = true; });
+      }
+    } else if (!this.lowQuality) {
+      this.renderer.shadowMap.enabled = true;
+    }
+  }
+
   private qualityTimer = 0;
   private pixelRatio = Math.min(devicePixelRatio, 1.5);
   /** Adaptive quality: lower resolution and view distances when the GPU struggles. */
@@ -511,6 +542,7 @@ export class Game {
     this.qualityTimer += dt;
     if (this.qualityTimer < 2.5) return;
     this.qualityTimer = 0;
+    if (this.settings.quality !== 'auto') return;
     const w = this.world!;
     const veg = w.veg;
     if (this.fps < 30) {

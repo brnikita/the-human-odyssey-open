@@ -72,6 +72,7 @@ export class Hud {
   private overcome: HTMLElement;
   private fpsEl: HTMLElement;
   private lastPrompt = '';
+  showFps = true;
 
   constructor(parent: HTMLElement) {
     this.root = el('div');
@@ -232,6 +233,6 @@ export class Hud {
     }
     this.overcome.hidden = !d.overcome;
     if (d.overcome) this.overcome.textContent = `FIND THE LIGHTS ${d.overcome.found}/${d.overcome.needed} · ${Math.ceil(d.overcome.timeLeft)}s`;
-    this.fpsEl.textContent = `${Math.round(d.fps)} fps · H help · Tab neurons · Q senses · Esc pause`;
+    this.fpsEl.textContent = `${this.showFps ? `${Math.round(d.fps)} fps · ` : ''}H help · Tab neurons · Q senses · Esc pause`;
   }
 }

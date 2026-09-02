@@ -1,4 +1,5 @@
 import type { HominidData, LineageState } from '@/core/types';
+import type { Settings } from '@/core/settings';
 
 export interface ScreenCallbacks {
   onNewGame: () => void;
@@ -9,6 +10,8 @@ export interface ScreenCallbacks {
   onSwitchMember: (id: string) => void;
   onHelpClose: () => void;
   onToggleMute: () => boolean;
+  getSettings: () => Settings;
+  onSettingsChange: (s: Settings) => void;
 }
 
 const CONTROLS: [string, string][] = [
@@ -60,14 +63,13 @@ export class Screens {
         <button class="btn primary" data-a="new">New Lineage</button>
         <button class="btn" data-a="continue" ${hasSave ? '' : 'disabled'}>Continue</button>
         <button class="btn" data-a="help">How to play</button>
-        <button class="btn" data-a="mute">Sound: on</button>
+        <button class="btn" data-a="settings">Settings</button>
       </div>
       <div class="hint">Explore, sense, learn and survive. Identify the unknown to calm your fear, unlock neurons, raise babies and pass your knowledge to the next generation. Reach 2 million years ago to win.</div>`);
     s.querySelector('[data-a=new]')!.addEventListener('click', () => this.cb.onNewGame());
     s.querySelector('[data-a=continue]')!.addEventListener('click', () => this.cb.onContinue());
     s.querySelector('[data-a=help]')!.addEventListener('click', () => this.showHelp(() => this.showMenu(hasSave)));
-    const mute = s.querySelector('[data-a=mute]') as HTMLButtonElement;
-    mute.addEventListener('click', () => { const m = this.cb.onToggleMute(); mute.textContent = `Sound: ${m ? 'off' : 'on'}`; });
+    s.querySelector('[data-a=settings]')!.addEventListener('click', () => this.showSettings(() => this.showMenu(hasSave)));
   }
 
   showPause() {
@@ -77,13 +79,44 @@ export class Screens {
         <button class="btn primary" data-a="resume">Resume</button>
         <button class="btn" data-a="save">Save game</button>
         <button class="btn" data-a="help">Controls</button>
+        <button class="btn" data-a="settings">Settings</button>
         <button class="btn" data-a="quit">Quit to menu</button>
       </div>
       <div class="hint">Progress is saved automatically when you sleep at the settlement and on generation change.</div>`);
     s.querySelector('[data-a=resume]')!.addEventListener('click', () => this.cb.onResume());
     s.querySelector('[data-a=save]')!.addEventListener('click', () => this.cb.onSave());
     s.querySelector('[data-a=help]')!.addEventListener('click', () => this.showHelp(() => this.showPause()));
+    s.querySelector('[data-a=settings]')!.addEventListener('click', () => this.showSettings(() => this.showPause()));
     s.querySelector('[data-a=quit]')!.addEventListener('click', () => this.cb.onQuitToMenu());
+  }
+
+  showSettings(onClose: () => void) {
+    const st = this.cb.getSettings();
+    const s = this.show(`
+      <div class="panel modal settings">
+        <h2>Settings</h2>
+        <label><span>Graphics quality</span><select data-k="quality">${['auto', 'low', 'medium', 'high'].map((q) => `<option value="${q}" ${st.quality === q ? 'selected' : ''}>${q}</option>`).join('')}</select></label>
+        <label><span>Volume <em data-v="volume">${Math.round(st.volume * 100)}%</em></span><input type="range" min="0" max="1" step="0.05" value="${st.volume}" data-k="volume"></label>
+        <label><span>Mouse sensitivity <em data-v="sensitivity">${st.sensitivity.toFixed(2)}</em></span><input type="range" min="0.3" max="2.5" step="0.05" value="${st.sensitivity}" data-k="sensitivity"></label>
+        <label><span>Invert vertical look</span><input type="checkbox" data-k="invertY" ${st.invertY ? 'checked' : ''}></label>
+        <label><span>Show frame rate</span><input type="checkbox" data-k="showFps" ${st.showFps ? 'checked' : ''}></label>
+        <div class="muted">Auto quality lowers resolution and view distance when the frame rate drops, and raises them again when it is stable.</div>
+        <div class="row"><button class="btn primary" data-a="close">Done</button></div>
+      </div>`, 'screen');
+    const apply = () => {
+      const next: Settings = {
+        quality: (s.querySelector('[data-k=quality]') as HTMLSelectElement).value as Settings['quality'],
+        volume: parseFloat((s.querySelector('[data-k=volume]') as HTMLInputElement).value),
+        sensitivity: parseFloat((s.querySelector('[data-k=sensitivity]') as HTMLInputElement).value),
+        invertY: (s.querySelector('[data-k=invertY]') as HTMLInputElement).checked,
+        showFps: (s.querySelector('[data-k=showFps]') as HTMLInputElement).checked,
+      };
+      (s.querySelector('[data-v=volume]') as HTMLElement).textContent = `${Math.round(next.volume * 100)}%`;
+      (s.querySelector('[data-v=sensitivity]') as HTMLElement).textContent = next.sensitivity.toFixed(2);
+      this.cb.onSettingsChange(next);
+    };
+    s.querySelectorAll('[data-k]').forEach((el) => { el.addEventListener('input', apply); el.addEventListener('change', apply); });
+    s.querySelector('[data-a=close]')!.addEventListener('click', onClose);
   }
 
   showHelp(onClose?: () => void) {

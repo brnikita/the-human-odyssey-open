@@ -204,3 +204,11 @@ button { font-family: inherit; }
 kbd { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 1px 6px; font-size: 11px; font-family: inherit; }
 .help-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; font-size: 13px; }
 .help-grid div { display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.08); padding: 4px 0; }
+
+/* ---------- Settings ---------- */
+.modal.settings { width: min(520px, 92vw); }
+.modal.settings label { display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 14px; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.08); }
+.modal.settings label em { font-style: normal; color: var(--accent); margin-left: 8px; }
+.modal.settings select, .modal.settings input[type=range] { width: 200px; accent-color: var(--accent); }
+.modal.settings select { background: rgba(0,0,0,0.5); color: var(--text); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px 8px; font-family: inherit; }
+.modal.settings input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }

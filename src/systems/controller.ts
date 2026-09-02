@@ -53,6 +53,8 @@ export class PlayerController {
   camYaw = 0;
   camPitch = 0.28;
   camDist = 6.5;
+  sensitivity = 1;
+  invertY = false;
   private camPos = new THREE.Vector3();
   private camLook = new THREE.Vector3();
   private camInit = false;
@@ -126,8 +128,8 @@ export class PlayerController {
 
     // Camera look
     if (allowInput && input.pointerLocked) {
-      this.camYaw -= input.mouseDX * 0.0022;
-      this.camPitch = clamp(this.camPitch + input.mouseDY * 0.0018, -0.6, 1.2);
+      this.camYaw -= input.mouseDX * 0.0022 * this.sensitivity;
+      this.camPitch = clamp(this.camPitch + input.mouseDY * 0.0018 * this.sensitivity * (this.invertY ? -1 : 1), -0.6, 1.2);
     }
     if (allowInput) this.camDist = clamp(this.camDist + input.wheel * 0.8, 2.5, 14);
 
