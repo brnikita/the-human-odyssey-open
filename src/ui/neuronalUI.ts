@@ -39,7 +39,11 @@ export class NeuronalUI {
     this.root.hidden = true;
     this.canvas = document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d')!;
-    this.root.appendChild(this.canvas);
+    const wrap = document.createElement('div');
+    wrap.className = 'canvas-wrap';
+    wrap.appendChild(this.canvas);
+    this.root.appendChild(wrap);
+    window.addEventListener('resize', () => { if (this.visible) this.resize(); });
     this.side = document.createElement('div');
     this.side.className = 'side';
     this.side.innerHTML = `<h2>Neuronal Network</h2><div class="energy"></div><div class="legend">${BRANCHES.map((b) => `<span style="color:${BRANCH_COLORS[b]}">${b}</span>`).join('')}</div><div class="info"></div><div class="foot">Click a neuron to select. <b>Unlock</b> spends neuronal energy. <b>Reinforce</b> makes it permanent through generations. Neurons with a requirement are unlocked by practising the matching action. Carrying babies increases energy gain.<br><br><kbd>Tab</kbd> / <kbd>Esc</kbd> close</div>`;

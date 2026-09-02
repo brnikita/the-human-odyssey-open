@@ -102,7 +102,7 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.uiRoot = uiRoot;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.lowQuality = navigator.webdriver === true || /lowquality/.test(location.search);
+    this.lowQuality = (navigator.webdriver === true || /lowquality/.test(location.search)) && !/quality=high/.test(location.search);
     this.renderer.setPixelRatio(this.lowQuality ? 0.5 : Math.min(devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = !this.lowQuality;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -287,6 +287,7 @@ export class Game {
     this.screens.hideAll();
     this.panels.close();
     this.neuronalUI.close();
+    this.hud.visible = true;
     this.state = 'playing';
     this.input.clearAll();
   }
@@ -416,11 +417,13 @@ export class Game {
     if (this.state !== 'playing') return;
     this.state = 'neuronal';
     this.input.exitPointerLock();
+    this.hud.visible = false;
     this.neuronalUI.open(this.neuronalData());
   }
 
   closeNeuronal() {
     this.neuronalUI.close();
+    this.hud.visible = true;
     this.state = 'playing';
     this.input.clearAll();
   }
@@ -429,6 +432,7 @@ export class Game {
     if (this.state !== 'playing' && this.state !== 'panel') return;
     this.state = 'panel';
     this.input.exitPointerLock();
+    this.hud.visible = false;
     const w = this.world!;
     this.panels.show(kind, {
       clan: this.clan, lineage: this.lineage, player: this.player, abilities: this.mods.abilities as Set<string>,

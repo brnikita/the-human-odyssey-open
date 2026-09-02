@@ -1,6 +1,6 @@
 :root {
   --bg: #0b0e12;
-  --panel: rgba(12, 16, 22, 0.82);
+  --panel: rgba(12, 16, 22, 0.94);
   --panel-border: rgba(255, 225, 180, 0.18);
   --text: #f1e9d8;
   --muted: #b8ad98;
@@ -155,8 +155,9 @@ button { font-family: inherit; }
 
 /* ---------- Neuronal screen ---------- */
 #neuronal { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(15, 20, 40, 0.92), rgba(3, 5, 12, 0.98)); display: flex; }
-#neuronal canvas { flex: 1; cursor: pointer; }
-#neuronal .side { width: 340px; padding: 24px; display: flex; flex-direction: column; gap: 12px; border-left: 1px solid var(--panel-border); background: rgba(5, 8, 16, 0.6); }
+#neuronal .canvas-wrap { flex: 1 1 0; min-width: 0; position: relative; }
+#neuronal canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; display: block; }
+#neuronal .side { flex: 0 0 340px; width: 340px; padding: 24px; display: flex; flex-direction: column; gap: 12px; border-left: 1px solid var(--panel-border); background: rgba(5, 8, 16, 0.6); }
 #neuronal h2 { font-family: var(--display); margin: 0; color: var(--accent); font-weight: 400; }
 #neuronal .energy { font-size: 22px; color: var(--accent); }
 #neuronal .desc { color: var(--muted); font-size: 14px; line-height: 1.5; min-height: 80px; }
