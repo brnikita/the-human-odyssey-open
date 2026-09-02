@@ -52,7 +52,7 @@ button { font-family: inherit; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px;
   background: radial-gradient(ellipse at center, rgba(10, 14, 20, 0.55), rgba(5, 7, 10, 0.92));
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.2s ease;
 }
 .screen h1 { font-family: var(--display); font-size: 64px; margin: 0; letter-spacing: 0.08em; color: var(--accent); text-shadow: 0 4px 30px rgba(255, 200, 100, 0.35); font-weight: 400; }
 .screen h2 { font-family: var(--display); font-size: 34px; margin: 0; color: var(--accent); font-weight: 400; }

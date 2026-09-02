@@ -69,13 +69,13 @@ test.describe('visual smoke', () => {
     await page.evaluate(() => window.game.closeNeuronal());
 
     await page.evaluate(() => window.game.openPanel('map'));
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(900);
     await page.screenshot({ path: `${OUT}/04-map.png` });
     await page.evaluate(() => window.game.openPanel('inventory'));
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(900);
     await page.screenshot({ path: `${OUT}/05-knowledge.png` });
     await page.evaluate(() => window.game.openPanel('clan'));
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(900);
     await page.screenshot({ path: `${OUT}/06-clan.png` });
     await page.evaluate(() => window.game.resume());
 
@@ -92,7 +92,7 @@ test.describe('visual smoke', () => {
     await shot(page, '11-landmark');
 
     await page.evaluate(() => { const g = window.game; g.api.goToSettlement(); g.api.step(5); g.tryGeneration(); });
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(900);
     await page.screenshot({ path: `${OUT}/10-generation.png` });
     expect(errors).toEqual([]);
   });
