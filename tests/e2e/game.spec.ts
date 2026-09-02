@@ -185,7 +185,7 @@ test.describe('The Human Odyssey', () => {
   test('survival drains, conditions, medicine and drinking', async ({ page }) => {
     await startGame(page);
     const r = await run(page, `
-      const h0 = g.player.stats.hunger; step(180); const h1 = g.player.stats.hunger;
+      const h0 = g.player.stats.hunger; step(360); const h1 = g.player.stats.hunger;
       api.applyCondition('bleeding'); step(90); const bleedHealth = g.player.stats.health;
       api.giveItem('horsetail', 'right'); api.press('use'); step(2); api.release('use'); step(80);
       const cured = g.player.conditions.map(x => x.id);

@@ -5,9 +5,9 @@ import type { AbilityId, ConditionId, HominidData, ItemDef, Stats } from '@/core
 // Tuning constants (all rates are per second of game time)
 // ---------------------------------------------------------------------------
 export const SURVIVAL_RATES = {
-  hungerDrain: 0.35,
-  thirstDrain: 0.5,
-  energyDrain: 0.2,
+  hungerDrain: 0.14,
+  thirstDrain: 0.2,
+  energyDrain: 0.09,
   runMult: 2.2,
   climbMult: 1.8,
   swimMult: 2.0,
@@ -15,8 +15,8 @@ export const SURVIVAL_RATES = {
   sleepEnergyRegen: 3,
   sleepDrainFactor: 0.5,
   /** health loss per second when hunger / thirst is at 0 (each) */
-  starvationDamage: 1.5,
-  dehydrationDamage: 1.5,
+  starvationDamage: 0.8,
+  dehydrationDamage: 1.0,
   /** health regen when well fed & hydrated */
   healthRegen: 0.4,
   regenHungerMin: 50,

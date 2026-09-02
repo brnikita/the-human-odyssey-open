@@ -7,6 +7,7 @@ import { AudioEngine } from './audio';
 import { hasSave, readSave, writeSave, SAVE_VERSION } from './save';
 import { GameWorld, type AnimalEntity, type HominidEntity, type WorldItem } from '@/world/gameWorld';
 import { WATER_LEVEL, WORLD_SIZE } from '@/world/terrain';
+import { Sky } from '@/world/sky';
 import { PlayerController, type MoveModifiers } from '@/systems/controller';
 import { Hud, type HudData, type HudMarker } from '@/ui/hud';
 import { Screens } from '@/ui/screens';
@@ -89,6 +90,9 @@ export class Game {
   private predatorNear = false;
   private lowQuality = false;
   private unknownExposure = 0;
+  private menuScene = new THREE.Scene();
+  private menuSky: Sky;
+  private menuTime = 0;
   /** debug/automation handle */
   readonly debug = { get: () => this.snapshot() };
 
@@ -103,6 +107,10 @@ export class Game {
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2500);
+    this.menuSky = new Sky(this.menuScene);
+    const menuGround = new THREE.Mesh(new THREE.CircleGeometry(3000, 48), new THREE.MeshStandardMaterial({ color: '#25401f', roughness: 1 }));
+    menuGround.rotation.x = -Math.PI / 2; menuGround.position.y = -3;
+    this.menuScene.add(menuGround);
     this.input = new Input(canvas);
     this.hud = new Hud(uiRoot);
     this.hud.visible = false;
@@ -474,6 +482,8 @@ export class Game {
       this.render(dt);
     } else if (w) {
       this.render(dt);
+    } else {
+      this.renderMenu(dt);
     }
     this.input.endFrame();
   }
@@ -495,6 +505,17 @@ export class Game {
       if (veg.treeDistance < 420) { veg.treeDistance += 40; veg.bushDistance = Math.min(160, veg.bushDistance + 15); veg.grassDistance = Math.min(110, veg.grassDistance + 10); }
       else if (this.pixelRatio < Math.min(devicePixelRatio, 1.5)) { this.pixelRatio = Math.min(Math.min(devicePixelRatio, 1.5), this.pixelRatio + 0.1); this.renderer.setPixelRatio(this.pixelRatio); }
     }
+  }
+
+  /** Slow sunrise behind the main menu. */
+  private renderMenu(dt: number) {
+    this.menuTime += dt;
+    const t = 0.2 + (Math.sin(this.menuTime * 0.05) * 0.5 + 0.5) * 0.35; // dawn .. afternoon
+    const focus = new THREE.Vector3(0, 0, 0);
+    this.menuSky.update(t, dt, focus);
+    this.camera.position.set(Math.sin(this.menuTime * 0.03) * 4, 2, Math.cos(this.menuTime * 0.03) * 4);
+    this.camera.lookAt(Math.sin(this.menuTime * 0.03 + 1) * 40, 8, Math.cos(this.menuTime * 0.03 + 1) * 40);
+    this.renderer.render(this.menuScene, this.camera);
   }
 
   private idleAnimate(dt: number) {

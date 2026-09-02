@@ -40,42 +40,42 @@ describe('survival: drains', () => {
   it('drains hunger, thirst and energy at base rates while awake', () => {
     const h = make();
     tickSurvival(h, 10, mods());
-    expect(h.stats.hunger).toBeCloseTo(96.5, 5);
-    expect(h.stats.thirst).toBeCloseTo(95, 5);
-    expect(h.stats.energy).toBeCloseTo(98, 5);
+    expect(h.stats.hunger).toBeCloseTo(100 - SURVIVAL_RATES.hungerDrain * 10, 5);
+    expect(h.stats.thirst).toBeCloseTo(100 - SURVIVAL_RATES.thirstDrain * 10, 5);
+    expect(h.stats.energy).toBeCloseTo(100 - SURVIVAL_RATES.energyDrain * 10, 5);
     expect(h.stats.health).toBe(100); // regen clamps at max
   });
 
   it('running multiplies drains by 2.2', () => {
     const h = make();
     tickSurvival(h, 10, mods({ isRunning: true }));
-    expect(h.stats.hunger).toBeCloseTo(100 - 0.35 * 2.2 * 10, 5);
-    expect(h.stats.thirst).toBeCloseTo(100 - 0.5 * 2.2 * 10, 5);
-    expect(h.stats.energy).toBeCloseTo(100 - 0.2 * 2.2 * 10, 5);
+    expect(h.stats.hunger).toBeCloseTo(100 - SURVIVAL_RATES.hungerDrain * 2.2 * 10, 5);
+    expect(h.stats.thirst).toBeCloseTo(100 - SURVIVAL_RATES.thirstDrain * 2.2 * 10, 5);
+    expect(h.stats.energy).toBeCloseTo(100 - SURVIVAL_RATES.energyDrain * 2.2 * 10, 5);
   });
 
   it('climbing and swimming use their own multipliers', () => {
     const c = make();
     tickSurvival(c, 10, mods({ isClimbing: true }));
-    expect(c.stats.hunger).toBeCloseTo(100 - 0.35 * 1.8 * 10, 5);
+    expect(c.stats.hunger).toBeCloseTo(100 - SURVIVAL_RATES.hungerDrain * 1.8 * 10, 5);
     const s = make();
     tickSurvival(s, 10, mods({ isSwimming: true }));
-    expect(s.stats.hunger).toBeCloseTo(100 - 0.35 * 2 * 10, 5);
+    expect(s.stats.hunger).toBeCloseTo(100 - SURVIVAL_RATES.hungerDrain * 2 * 10, 5);
   });
 
   it('metabolismMult and statMult scale the drains', () => {
     const h = make();
     tickSurvival(h, 10, mods({ metabolismMult: 0.5, statMult: { thirst: 0.5 } }));
-    expect(h.stats.hunger).toBeCloseTo(100 - 0.35 * 0.5 * 10, 5);
-    expect(h.stats.thirst).toBeCloseTo(100 - 0.5 * 0.5 * 0.5 * 10, 5);
+    expect(h.stats.hunger).toBeCloseTo(100 - SURVIVAL_RATES.hungerDrain * 0.5 * 10, 5);
+    expect(h.stats.thirst).toBeCloseTo(100 - SURVIVAL_RATES.thirstDrain * 0.5 * 0.5 * 10, 5);
   });
 
   it('sleeping restores energy and halves the other drains', () => {
     const h = make({ stats: { health: 100, energy: 20, hunger: 100, thirst: 100 } });
     tickSurvival(h, 10, mods({ isSleeping: true, isRunning: true }));
     expect(h.stats.energy).toBeCloseTo(50, 5);
-    expect(h.stats.hunger).toBeCloseTo(100 - 0.35 * 0.5 * 10, 5);
-    expect(h.stats.thirst).toBeCloseTo(100 - 0.5 * 0.5 * 10, 5);
+    expect(h.stats.hunger).toBeCloseTo(100 - SURVIVAL_RATES.hungerDrain * 0.5 * 10, 5);
+    expect(h.stats.thirst).toBeCloseTo(100 - SURVIVAL_RATES.thirstDrain * 0.5 * 10, 5);
   });
 
   it('is robust to large dt (sub-steps internally)', () => {
@@ -86,7 +86,7 @@ describe('survival: drains', () => {
     expect(a.stats.hunger).toBeCloseTo(b.stats.hunger, 6);
     expect(a.stats.thirst).toBeCloseTo(b.stats.thirst, 6);
     expect(a.stats.energy).toBeCloseTo(b.stats.energy, 6);
-    expect(a.stats.thirst).toBe(0); // 100 / 0.5 = 200s to empty
+    expect(a.stats.thirst).toBe(0); // 100 / thirstDrain < 600s to empty
   });
 
   it('ignores zero, negative and NaN dt', () => {
@@ -109,14 +109,14 @@ describe('survival: starvation, dehydration, death', () => {
     expect(tickSurvival(h, 5, mods()).some((e) => e.type === 'starving')).toBe(false);
   });
 
-  it('drains health at 1.5/s each for hunger and thirst at 0', () => {
+  it('drains health at the starvation/dehydration rates when hunger and thirst are at 0', () => {
     const h = make({ stats: { health: 100, energy: 100, hunger: 0, thirst: 0 } });
     tickSurvival(h, 10, mods());
-    expect(h.stats.health).toBeCloseTo(70, 5);
+    expect(h.stats.health).toBeCloseTo(100 - (SURVIVAL_RATES.starvationDamage + SURVIVAL_RATES.dehydrationDamage) * 10, 5);
     const d = make({ stats: { health: 100, energy: 100, hunger: 100, thirst: 0 } });
     const events = tickSurvival(d, 10, mods());
     expect(events.some((e) => e.type === 'dehydrated')).toBe(false); // already at 0: no crossing
-    expect(d.stats.health).toBeCloseTo(85, 5);
+    expect(d.stats.health).toBeCloseTo(100 - SURVIVAL_RATES.dehydrationDamage * 10, 5);
   });
 
   it('dies when health reaches 0 with a cause and stops ticking afterwards', () => {
@@ -207,7 +207,7 @@ describe('survival: conditions', () => {
     expect(has(events, 'condition_added', 'cold')).toBe(true);
     const energyBefore = h.stats.energy;
     tickSurvival(h, 10, mods({ isRaining: true }));
-    expect(energyBefore - h.stats.energy).toBeGreaterThan(0.2 * 10); // more than base drain
+    expect(energyBefore - h.stats.energy).toBeGreaterThan(SURVIVAL_RATES.energyDrain * 10); // more than base drain
     events = tickSurvival(h, 25, mods({ isRaining: false }));
     expect(hasCondition(h, 'cold')).toBe(false);
     expect(has(events, 'condition_cured', 'cold')).toBe(true);
@@ -224,7 +224,7 @@ describe('survival: conditions', () => {
   });
 
   it('exhaustion sets in at 0 energy, drains health, and lifts once energy > 30', () => {
-    const h = make({ stats: { health: 100, energy: 1, hunger: 100, thirst: 100 } });
+    const h = make({ stats: { health: 100, energy: 0.5, hunger: 100, thirst: 100 } });
     let events = tickSurvival(h, 10, mods());
     expect(h.stats.energy).toBe(0);
     expect(has(events, 'exhausted')).toBe(true);
