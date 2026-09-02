@@ -453,4 +453,19 @@ test.describe('The Human Odyssey', () => {
     expect(r.energy).toBeGreaterThan(60);
     expect(r.mapOpen).toBe(true);
   });
+  test('procedural audio engine initialises and plays effects without errors', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await startGame(page);
+    const r = await run(page, `
+      g.audio.init(); g.audio.resume();
+      for (const n of ['pickup', 'eat', 'discover', 'unlock', 'hit', 'hurt', 'roar', 'call', 'evolve', 'heartbeat']) g.audio.play(n, 0.5);
+      g.audio.update(0.1, { night: 1, rain: 0.5, fear: 80, inJungle: 1, underwater: false, timeScale: 1 });
+      await sleep(300);
+      return { ctx: !!g.audio.ctx, state: g.audio.ctx?.state ?? null, volume: g.audio.volume };
+    `) as any;
+    expect(r.ctx).toBe(true);
+    expect(['running', 'suspended']).toContain(r.state);
+    expect(errors).toEqual([]);
+  });
 });

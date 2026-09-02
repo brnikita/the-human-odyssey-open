@@ -60,6 +60,11 @@ Production build: `npm run build` (output in `dist/`, serve statically).
   prompt appears. A perfect dodge with the Counter Attack neuron opens a counter.
 - **Clan.** Groom clan members, carry babies to learn faster, feed and groom
   outsiders to recruit them, mate at the settlement.
+- **Landmarks.** Six unique places are hidden in the world: the Great Baobab, a stone
+  arch, ancient bones, a hot spring that cures the cold, a dark cave and a fallen giant.
+  Identify them for a big neuronal energy bonus; they then appear on the map.
+- **Settings.** Graphics quality (auto adapts to your GPU), volume, mouse sensitivity
+  and inverted look are in the Settings screen and persist between sessions.
 - **Generations.** At the settlement with offspring, press G. Babies grow, elders
   pass, un-reinforced neurons are forgotten and newborns may carry mutations.
   An evolution leap also jumps the lineage forward in time, reduced by the feats
@@ -82,7 +87,7 @@ npm run typecheck
 - `src/render` — procedural character, animal and item models with animation.
 - `src/data` — items, plants, species, neurons, feats.
 - `src/ui` — HUD, screens, neuronal network canvas, panels.
-- `tests/unit`, `tests/e2e` — 188 unit tests and a Playwright gameplay suite.
+- `tests/unit`, `tests/e2e` — 220+ unit tests, a deterministic Playwright gameplay suite and a visual smoke spec that stores screenshots in `test-results/screens`.
 
 See `docs/DESIGN.md` for the design contract.
 

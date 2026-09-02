@@ -22,7 +22,7 @@ async function start(page: Page) {
 
 async function shot(page: Page, name: string) {
   fs.mkdirSync(OUT, { recursive: true });
-  await page.evaluate(() => { const g = window.game; for (let i = 0; i < 3; i++) g.render(0.016); g.updateHud?.(); });
+  await page.evaluate(() => { const g = window.game; for (let i = 0; i < 2; i++) g.render(0.016); g.updateHud?.(); });
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/${name}.png` });
 }
@@ -46,7 +46,7 @@ async function canvasHasContent(page: Page): Promise<boolean> {
 
 test.describe('visual smoke', () => {
   test('key screens render', async ({ page }) => {
-    test.setTimeout(600_000);
+    test.setTimeout(1_200_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto('/');
@@ -87,6 +87,9 @@ test.describe('visual smoke', () => {
     // predator encounter prompt
     await page.evaluate(() => { const g = window.game; g.world.sky.rain = 0; g.rainTarget = 0; g.api.spawnAnimal('machairodus', 3, 0); g.api.face(g.controller.position.x + 3, g.controller.position.z); for (let i = 0; i < 400 && !g.combat.telegraph; i++) g.api.step(1); });
     await shot(page, '09-predator');
+
+    await page.evaluate(() => { const g = window.game; const l = g.world.landmarks.find((x: any) => x.def.id === 'great_baobab') ?? g.world.landmarks[0]; if (l) { g.api.teleport(l.position.x + 18, l.position.z + 12); g.api.face(l.position.x, l.position.z); g.controller.camYaw = g.controller.yaw; g.controller.camDist = 12; g.api.step(3); } });
+    await shot(page, '11-landmark');
 
     await page.evaluate(() => { const g = window.game; g.api.goToSettlement(); g.api.step(5); g.tryGeneration(); });
     await page.waitForTimeout(300);
