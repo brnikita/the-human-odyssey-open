@@ -32,6 +32,8 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Requires GitHub Pages to be enabled with source 'GitHub Actions' in the repo settings.
+    continue-on-error: true
     permissions:
       contents: read
       pages: write
