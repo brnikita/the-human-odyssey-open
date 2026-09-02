@@ -10,7 +10,8 @@ if (process.env.MENU_SHOT) { await page.waitForFunction(() => !!window.game); aw
 await page.waitForFunction(() => !!window.game);
 await page.evaluate(async () => { await window.game.api.newGame(42); });
 await page.waitForFunction(() => window.game.state === 'playing', null, { timeout: 120000 });
-await page.evaluate(() => { const g = window.game; g.api.step(30); g.controller.camPitch = 0.25; g.controller.camDist = 5; g.api.spawnAnimal('machairodus', 3, 1); g.api.spawnAnimal('antelope', -3, 2); g.api.step(2); for (let i = 0; i < 2; i++) g.render(0.016); g.updateHud(); });
+const opts = { pitch: Number(process.env.PITCH ?? 0.25), dist: Number(process.env.DIST ?? 5), spawn: !process.env.NO_SPAWN, front: !!process.env.FRONT };
+await page.evaluate((o) => { const g = window.game; g.api.step(30); g.controller.camPitch = o.pitch; g.controller.camDist = o.dist; if (o.front) g.controller.camYaw = g.controller.yaw + Math.PI; if (o.spawn) { g.api.spawnAnimal('machairodus', 3, 1); g.api.spawnAnimal('antelope', -3, 2); } g.api.step(2); for (let i = 0; i < 2; i++) g.render(0.016); g.updateHud(); }, opts);
 await page.waitForTimeout(500);
 await page.screenshot({ path: out, timeout: 180000 });
 const info = await page.evaluate(() => { const g = window.game; g.render(0.016); return { calls: g.renderer.info.render.calls, tris: g.renderer.info.render.triangles }; });

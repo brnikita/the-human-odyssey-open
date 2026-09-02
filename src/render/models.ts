@@ -117,45 +117,81 @@ export class HominidRig {
     this.bakedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
     const fur = this.furMat, skin = this.skinMat;
 
-    this.torso = capsule(0.28, 0.5, fur);
-    this.torso.rotation.z = 0;
-    this.body.add(this.torso);
+    const dark = mat('#1a1210');
+    const chestColor = new THREE.Color(furColor).offsetHSL(0, -0.05, 0.1).getStyle();
+    const chestMat = mat(chestColor);
 
+    // ---- Torso: broad shoulders, deep chest, round belly, hunched upper back
+    this.torso = capsule(0.3, 0.4, fur);
+    this.torso.scale.set(1.15, 1, 0.9);
+    const belly = sphere(0.31, fur, 10); belly.position.set(0, -0.2, 0.04); belly.scale.set(1.05, 0.8, 0.95);
+    const chest = sphere(0.25, chestMat, 8); chest.position.set(0, 0.0, 0.18); chest.scale.set(1.1, 1.1, 0.5);
+    const shoulders = capsule(0.17, 0.5, fur); shoulders.rotation.z = Math.PI / 2; shoulders.position.set(0, 0.3, -0.04);
+    const hump = sphere(0.22, fur, 8); hump.position.set(0, 0.34, -0.14); hump.scale.set(1.1, 0.7, 0.9);
+    const torsoGroup = new THREE.Group();
+    torsoGroup.add(this.torso, belly, chest, shoulders, hump);
+    bakeStatic(torsoGroup, this.bakedMat);
+    this.body.add(torsoGroup);
+
+    // ---- Head: skull with crest, brow ridge, protruding muzzle, eyes with sclera, large ears
     this.head = new THREE.Group();
-    const skull = sphere(0.22, fur, 10);
-    const face = sphere(0.16, skin, 8); face.position.set(0, -0.05, 0.14); face.scale.set(1, 0.85, 0.7);
-    const browL = box(0.08, 0.04, 0.05, fur); browL.position.set(-0.07, 0.05, 0.2);
-    const browR = browL.clone(); browR.position.x = 0.07;
-    const eyeL = sphere(0.035, mat('#111111', { roughness: 0.3 }), 6); eyeL.position.set(-0.07, 0.0, 0.24);
-    const eyeR = eyeL.clone(); eyeR.position.x = 0.07;
-    const earL = sphere(0.05, skin, 6); earL.position.set(-0.22, 0, 0);
-    const earR = earL.clone(); earR.position.x = 0.22;
-    this.head.add(skull, face, browL, browR, eyeL, eyeR, earL, earR);
+    const skull = sphere(0.21, fur, 10); skull.scale.set(1, 0.95, 1.05);
+    const crest = sphere(0.13, fur, 6); crest.position.set(0, 0.15, -0.05); crest.scale.set(0.8, 0.6, 1.2);
+    const face = sphere(0.15, skin, 8); face.position.set(0, -0.04, 0.13); face.scale.set(1.05, 0.9, 0.7);
+    const muzzle = sphere(0.11, skin, 8); muzzle.position.set(0, -0.11, 0.23); muzzle.scale.set(1.25, 0.8, 0.95);
+    const mouth = box(0.12, 0.014, 0.03, dark); mouth.position.set(0, -0.155, 0.325);
+    const nostrilL = sphere(0.017, dark, 5); nostrilL.position.set(-0.035, -0.085, 0.335);
+    const nostrilR = nostrilL.clone(); nostrilR.position.x = 0.035;
+    const brow = box(0.26, 0.055, 0.09, fur); brow.position.set(0, 0.055, 0.185); brow.rotation.x = 0.25;
+    const eyeWhiteL = sphere(0.036, mat('#efe6d2', { roughness: 0.35 }), 7); eyeWhiteL.position.set(-0.068, 0.0, 0.205);
+    const eyeWhiteR = eyeWhiteL.clone(); eyeWhiteR.position.x = 0.068;
+    const pupilL = sphere(0.02, mat('#0e0a08', { roughness: 0.25 }), 6); pupilL.position.set(-0.068, 0.0, 0.236);
+    const pupilR = pupilL.clone(); pupilR.position.x = 0.068;
+    const earL = sphere(0.06, skin, 7); earL.position.set(-0.2, -0.01, -0.03); earL.scale.set(0.45, 1, 0.8);
+    const earR = earL.clone(); earR.position.x = 0.2;
+    this.head.add(skull, crest, face, muzzle, mouth, nostrilL, nostrilR, brow, eyeWhiteL, eyeWhiteR, pupilL, pupilR, earL, earR);
     bakeStatic(this.head, this.bakedMat);
-    this.head.position.set(0, 0.45, 0.05);
+    this.head.position.set(0, 0.47, 0.06);
     this.body.add(this.head);
 
-    this.armL = limb(0.09, 0.42, fur); this.armL.position.set(-0.33, 0.25, 0);
-    this.armR = limb(0.09, 0.42, fur); this.armR.position.set(0.33, 0.25, 0);
-    this.foreL = limb(0.075, 0.4, fur); this.foreL.position.y = -0.42;
-    this.foreR = limb(0.075, 0.4, fur); this.foreR.position.y = -0.42;
+    // ---- Arms: long, thick upper arms; forearms end in knuckle-walking hands with fingers
+    this.armL = limb(0.105, 0.42, fur); this.armL.position.set(-0.36, 0.28, -0.02);
+    this.armR = limb(0.105, 0.42, fur); this.armR.position.set(0.36, 0.28, -0.02);
+    this.foreL = limb(0.08, 0.4, fur); this.foreL.position.y = -0.42;
+    this.foreR = limb(0.08, 0.4, fur); this.foreR.position.y = -0.42;
     this.armL.add(this.foreL); this.armR.add(this.foreR);
-    const handMeshL = sphere(0.09, skin, 6); handMeshL.position.y = -0.42;
-    const handMeshR = handMeshL.clone();
-    this.foreL.add(handMeshL); this.foreR.add(handMeshR);
-    this.handL.position.set(0, -0.44, 0.05); this.handR.position.set(0, -0.44, 0.05);
+    const makeHand = () => {
+      const g = new THREE.Group();
+      const palm = box(0.13, 0.06, 0.15, skin); palm.position.set(0, 0, 0.02);
+      const knuckles = box(0.13, 0.05, 0.06, fur); knuckles.position.set(0, 0.03, -0.03);
+      for (let i = 0; i < 3; i++) {
+        const f = capsule(0.018, 0.07, skin); f.position.set(-0.04 + i * 0.04, -0.04, 0.08); f.rotation.x = 1.2;
+        g.add(f);
+      }
+      const thumb = capsule(0.017, 0.05, skin); thumb.position.set(0.075, -0.02, 0.03); thumb.rotation.z = -1.1;
+      g.add(palm, knuckles, thumb);
+      bakeStatic(g, this.bakedMat);
+      g.position.y = -0.42;
+      return g;
+    };
+    this.foreL.add(makeHand()); this.foreR.add(makeHand());
+    this.handL.position.set(0, -0.44, 0.06); this.handR.position.set(0, -0.44, 0.06);
     this.foreL.add(this.handL); this.foreR.add(this.handR);
     this.body.add(this.armL, this.armR);
 
-    this.legL = limb(0.1, 0.34, fur); this.legL.position.set(-0.16, -0.3, 0);
-    this.legR = limb(0.1, 0.34, fur); this.legR.position.set(0.16, -0.3, 0);
-    this.shinL = limb(0.08, 0.32, fur); this.shinL.position.y = -0.34;
-    this.shinR = limb(0.08, 0.32, fur); this.shinR.position.y = -0.34;
+    // ---- Legs: short thighs, shins with grasping feet
+    this.legL = limb(0.11, 0.34, fur); this.legL.position.set(-0.17, -0.3, 0);
+    this.legR = limb(0.11, 0.34, fur); this.legR.position.set(0.17, -0.3, 0);
+    this.shinL = limb(0.085, 0.32, fur); this.shinL.position.y = -0.34;
+    this.shinR = limb(0.085, 0.32, fur); this.shinR.position.y = -0.34;
     this.legL.add(this.shinL); this.legR.add(this.shinR);
-    const footL = box(0.12, 0.06, 0.24, skin); footL.position.set(0, -0.34, 0.06);
-    const footR = footL.clone();
-    this.shinL.add(footL); this.shinR.add(footR);
-    bakeStatic(this.shinL, this.bakedMat); bakeStatic(this.shinR, this.bakedMat);
+    for (const shin of [this.shinL, this.shinR]) {
+      const sole = box(0.13, 0.06, 0.26, skin); sole.position.set(0, -0.34, 0.06);
+      for (let i = 0; i < 3; i++) { const toe = capsule(0.018, 0.05, skin); toe.position.set(-0.04 + i * 0.04, -0.35, 0.2); toe.rotation.x = Math.PI / 2; shin.add(toe); }
+      const bigToe = capsule(0.02, 0.05, skin); bigToe.position.set(-0.075, -0.35, 0.12); bigToe.rotation.z = 1.2; shin.add(bigToe);
+      shin.add(sole);
+      bakeStatic(shin, this.bakedMat);
+    }
     this.body.add(this.legL, this.legR);
 
     this.back.position.set(0, 0.35, -0.3);
@@ -202,7 +238,7 @@ export class HominidRig {
     let bodyY = bip ? 1.05 : 0.86;
     let torsoPitch = bip ? 0.1 : 0.85; // radians forward lean
     let armL = 0, armR = 0, foreL = 0, foreR = 0, legL = 0, legR = 0, shinL = 0, shinR = 0;
-    let headPitch = bip ? 0 : -0.55;
+    let headPitch = bip ? 0 : -0.3;
     let bodyRoll = 0;
     let bodyYaw = 0;
 
