@@ -130,8 +130,8 @@ export class HominidRig {
     const chest = sphere(0.24, chestMat, 8); chest.position.set(0, 0.08, 0.15); chest.scale.set(1.15, 1.0, 0.5);
     const belly = sphere(0.24, fur, 10); belly.position.set(0, -0.2, 0.03); belly.scale.set(1.0, 0.85, 0.9);
     const hips = sphere(0.26, fur, 8); hips.position.set(0, -0.36, -0.02); hips.scale.set(1.05, 0.6, 0.9);
-    const shoulders = capsule(0.15, 0.56, fur); shoulders.rotation.z = Math.PI / 2; shoulders.position.set(0, 0.32, -0.03);
-    const deltL = sphere(0.15, fur, 7); deltL.position.set(-0.36, 0.3, -0.02);
+    const shoulders = capsule(0.12, 0.52, fur); shoulders.rotation.z = Math.PI / 2; shoulders.position.set(0, 0.32, -0.03);
+    const deltL = sphere(0.11, fur, 7); deltL.position.set(-0.34, 0.3, -0.02);
     const deltR = deltL.clone(); deltR.position.x = 0.36;
     const neck = capsule(0.09, 0.1, fur); neck.position.set(0, 0.42, 0.03);
     const torsoGroup = new THREE.Group();
@@ -166,28 +166,28 @@ export class HominidRig {
     this.head.position.set(0, 0.52, 0.05);
     this.body.add(this.head);
 
-    // ---- Arms: gorilla - massive upper arms, thick forearms, huge knuckle-walking hands
-    this.armL = limb(0.14, 0.4, fur); this.armL.position.set(-0.4, 0.28, -0.02);
-    this.armR = limb(0.14, 0.4, fur); this.armR.position.set(0.4, 0.28, -0.02);
-    this.foreL = limb(0.115, 0.42, fur); this.foreL.position.y = -0.4;
-    this.foreR = limb(0.115, 0.42, fur); this.foreR.position.y = -0.4;
+    // ---- Arms: chimpanzee - long and slender, forearms longer than upper arms, narrow hands with long fingers
+    this.armL = limb(0.095, 0.4, fur); this.armL.position.set(-0.36, 0.28, -0.02);
+    this.armR = limb(0.095, 0.4, fur); this.armR.position.set(0.36, 0.28, -0.02);
+    this.foreL = limb(0.08, 0.46, fur); this.foreL.position.y = -0.4;
+    this.foreR = limb(0.08, 0.46, fur); this.foreR.position.y = -0.4;
     this.armL.add(this.foreL); this.armR.add(this.foreR);
     const makeHand = () => {
       const g = new THREE.Group();
-      const palm = box(0.17, 0.08, 0.18, skin); palm.position.set(0, 0, 0.02);
-      const knuckles = box(0.17, 0.07, 0.08, fur); knuckles.position.set(0, 0.04, -0.03);
+      const palm = box(0.11, 0.055, 0.17, skin); palm.position.set(0, 0, 0.03);
+      const knuckles = box(0.11, 0.05, 0.06, fur); knuckles.position.set(0, 0.03, -0.03);
       for (let i = 0; i < 4; i++) {
-        const f = capsule(0.022, 0.085, skin); f.position.set(-0.06 + i * 0.04, -0.045, 0.1); f.rotation.x = 1.25;
+        const f = capsule(0.016, 0.13, skin); f.position.set(-0.04 + i * 0.027, -0.05, 0.13); f.rotation.x = 1.35;
         g.add(f);
       }
-      const thumb = capsule(0.022, 0.06, skin); thumb.position.set(0.095, -0.02, 0.03); thumb.rotation.z = -1.1;
+      const thumb = capsule(0.015, 0.06, skin); thumb.position.set(0.065, -0.015, 0.05); thumb.rotation.z = -1.0; thumb.rotation.x = 0.5;
       g.add(palm, knuckles, thumb);
       bakeStatic(g, this.bakedMat);
-      g.position.y = -0.44;
+      g.position.y = -0.48;
       return g;
     };
     this.foreL.add(makeHand()); this.foreR.add(makeHand());
-    this.handL.position.set(0, -0.46, 0.07); this.handR.position.set(0, -0.46, 0.07);
+    this.handL.position.set(0, -0.5, 0.08); this.handR.position.set(0, -0.5, 0.08);
     this.foreL.add(this.handL); this.foreR.add(this.handR);
     this.body.add(this.armL, this.armR);
 
