@@ -167,10 +167,10 @@ export class HominidRig {
     this.body.add(this.head);
 
     // ---- Arms: chimpanzee - long and slender, forearms longer than upper arms, narrow hands with long fingers
-    this.armL = limb(0.115, 0.4, fur); this.armL.position.set(-0.37, 0.28, -0.02);
-    this.armR = limb(0.115, 0.4, fur); this.armR.position.set(0.37, 0.28, -0.02);
-    this.foreL = limb(0.095, 0.46, fur); this.foreL.position.y = -0.4;
-    this.foreR = limb(0.095, 0.46, fur); this.foreR.position.y = -0.4;
+    this.armL = limb(0.115, 0.5, fur); this.armL.position.set(-0.37, 0.28, -0.02);
+    this.armR = limb(0.115, 0.5, fur); this.armR.position.set(0.37, 0.28, -0.02);
+    this.foreL = limb(0.095, 0.54, fur); this.foreL.position.y = -0.5;
+    this.foreR = limb(0.095, 0.54, fur); this.foreR.position.y = -0.5;
     this.armL.add(this.foreL); this.armR.add(this.foreR);
     const makeHand = () => {
       const g = new THREE.Group();
@@ -183,11 +183,11 @@ export class HominidRig {
       const thumb = capsule(0.015, 0.06, skin); thumb.position.set(0.065, -0.015, 0.05); thumb.rotation.z = -1.0; thumb.rotation.x = 0.5;
       g.add(palm, knuckles, thumb);
       bakeStatic(g, this.bakedMat);
-      g.position.y = -0.48;
+      g.position.y = -0.56;
       return g;
     };
     this.foreL.add(makeHand()); this.foreR.add(makeHand());
-    this.handL.position.set(0, -0.5, 0.08); this.handR.position.set(0, -0.5, 0.08);
+    this.handL.position.set(0, -0.58, 0.08); this.handR.position.set(0, -0.58, 0.08);
     this.foreL.add(this.handL); this.foreR.add(this.handR);
     this.body.add(this.armL, this.armR);
 
@@ -248,8 +248,8 @@ export class HominidRig {
     this.breathe = Math.sin(this.t * 2.2) * 0.02;
 
     // Defaults (idle)
-    let bodyY = bip ? 1.05 : 0.86;
-    let torsoPitch = bip ? 0.1 : 0.85; // radians forward lean
+    let bodyY = bip ? 1.05 : 0.89;
+    let torsoPitch = bip ? 0.1 : 0.55; // radians forward lean
     let armL = 0, armR = 0, foreL = 0, foreR = 0, legL = 0, legR = 0, shinL = 0, shinR = 0;
     let headPitch = bip ? 0 : -0.15;
     let bodyRoll = 0;
@@ -263,8 +263,8 @@ export class HominidRig {
         if (bip) { armL = 0.15; armR = -0.15; foreL = 0.2; foreR = 0.2; }
         else {
           // quadruped stance: limb angles are expressed in world pitch, then made relative to the leaning torso
-          armL = -0.1 - torsoPitch; armR = armL; foreL = 0.05; foreR = 0.05;
-          legL = 0.55 - torsoPitch; legR = legL; shinL = -1.15; shinR = -1.15; bodyY = 0.78;
+          armL = 0.1 - torsoPitch; armR = armL; foreL = 0.05; foreR = 0.05;
+          legL = 0.45 - torsoPitch; legR = legL; shinL = -0.5; shinR = -0.5; bodyY = 0.9;
         }
         if (state === 'eat' || state === 'drink') { armR = -1.4; foreR = -1.5; headPitch = state === 'drink' ? -0.9 : -0.3; }
         if (state === 'groom') { armL = -1.0; foreL = -0.9; armR = -1.1; foreR = -0.8; }
@@ -281,12 +281,12 @@ export class HominidRig {
           bodyY = 1.05 + Math.abs(Math.cos(p)) * 0.05;
         } else {
           // knuckle-walk: arms act as front legs; thighs swing forward-down, shins fold back under the hips
-          torsoPitch = state === 'run' ? 1.0 : 0.85;
-          armL = -0.1 + swing * amp * 0.7 - torsoPitch; armR = -0.1 + swing2 * amp * 0.7 - torsoPitch;
-          foreL = 0.05 + Math.max(0, Math.sin(p + 0.8)) * 0.5; foreR = 0.05 + Math.max(0, Math.sin(p + Math.PI + 0.8)) * 0.5;
-          legL = 0.55 + swing2 * amp * 0.7 - torsoPitch; legR = 0.55 + swing * amp * 0.7 - torsoPitch;
-          shinL = -1.15 + Math.max(0, Math.sin(p + Math.PI - 0.5)) * 0.8; shinR = -1.15 + Math.max(0, Math.sin(p - 0.5)) * 0.8;
-          bodyY = 0.8 + Math.abs(Math.sin(p)) * (state === 'run' ? 0.1 : 0.04);
+          torsoPitch = state === 'run' ? 0.7 : 0.6;
+          armL = 0.1 + swing * amp * 0.55 - torsoPitch; armR = 0.1 + swing2 * amp * 0.55 - torsoPitch;
+          foreL = 0.05 + Math.max(0, Math.sin(p + 0.8)) * 0.45; foreR = 0.05 + Math.max(0, Math.sin(p + Math.PI + 0.8)) * 0.45;
+          legL = 0.5 + swing2 * amp * 0.5 - torsoPitch; legR = 0.5 + swing * amp * 0.5 - torsoPitch;
+          shinL = -0.65 + Math.max(0, Math.sin(p + Math.PI - 0.5)) * 0.6; shinR = -0.65 + Math.max(0, Math.sin(p - 0.5)) * 0.6;
+          bodyY = 0.89 + Math.abs(Math.sin(p)) * (state === 'run' ? 0.06 : 0.03);
           bodyRoll = Math.sin(p) * 0.06;
         }
         break;
