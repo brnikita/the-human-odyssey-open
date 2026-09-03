@@ -118,78 +118,91 @@ export class HominidRig {
     const fur = this.furMat, skin = this.skinMat;
 
     const dark = mat('#1a1210');
-    const chestColor = new THREE.Color(furColor).offsetHSL(0, -0.05, 0.1).getStyle();
-    const chestMat = mat(chestColor);
+    const furC = new THREE.Color(furColor);
+    const chestMat = mat(furC.clone().offsetHSL(0, -0.05, 0.08).getStyle());
+    // chimpanzee face: bare, darker than the body skin, lighter around the mouth
+    const faceMat = mat(new THREE.Color(skinColor).offsetHSL(0, -0.1, -0.14).getStyle(), { roughness: 0.75 });
+    const lipMat = mat(new THREE.Color(skinColor).offsetHSL(0, -0.05, -0.02).getStyle(), { roughness: 0.75 });
 
-    // ---- Torso: broad shoulders, deep chest, round belly, hunched upper back
-    this.torso = capsule(0.3, 0.4, fur);
-    this.torso.scale.set(1.15, 1, 0.9);
-    const belly = sphere(0.31, fur, 10); belly.position.set(0, -0.2, 0.04); belly.scale.set(1.05, 0.8, 0.95);
-    const chest = sphere(0.25, chestMat, 8); chest.position.set(0, 0.0, 0.18); chest.scale.set(1.1, 1.1, 0.5);
-    const shoulders = capsule(0.17, 0.5, fur); shoulders.rotation.z = Math.PI / 2; shoulders.position.set(0, 0.3, -0.04);
-    const hump = sphere(0.22, fur, 8); hump.position.set(0, 0.34, -0.14); hump.scale.set(1.1, 0.7, 0.9);
+    // ---- Torso: furry human proportions - long trunk, broad shoulders, narrow waist, round hips
+    this.torso = capsule(0.25, 0.5, fur);
+    this.torso.scale.set(1.12, 1, 0.82);
+    const chest = sphere(0.24, chestMat, 8); chest.position.set(0, 0.08, 0.15); chest.scale.set(1.15, 1.0, 0.5);
+    const belly = sphere(0.24, fur, 10); belly.position.set(0, -0.2, 0.03); belly.scale.set(1.0, 0.85, 0.9);
+    const hips = sphere(0.26, fur, 8); hips.position.set(0, -0.36, -0.02); hips.scale.set(1.05, 0.6, 0.9);
+    const shoulders = capsule(0.15, 0.56, fur); shoulders.rotation.z = Math.PI / 2; shoulders.position.set(0, 0.32, -0.03);
+    const deltL = sphere(0.15, fur, 7); deltL.position.set(-0.36, 0.3, -0.02);
+    const deltR = deltL.clone(); deltR.position.x = 0.36;
+    const neck = capsule(0.09, 0.1, fur); neck.position.set(0, 0.42, 0.03);
     const torsoGroup = new THREE.Group();
-    torsoGroup.add(this.torso, belly, chest, shoulders, hump);
+    torsoGroup.add(this.torso, chest, belly, hips, shoulders, deltL, deltR, neck);
     bakeStatic(torsoGroup, this.bakedMat);
     this.body.add(torsoGroup);
 
-    // ---- Head: skull with crest, brow ridge, protruding muzzle, eyes with sclera, large ears
+    // ---- Head: chimpanzee - round skull, big protruding ears, heavy brow, wide flat muzzle, wide mouth
     this.head = new THREE.Group();
-    const skull = sphere(0.21, fur, 10); skull.scale.set(1, 0.95, 1.05);
-    const crest = sphere(0.13, fur, 6); crest.position.set(0, 0.15, -0.05); crest.scale.set(0.8, 0.6, 1.2);
-    const face = sphere(0.15, skin, 8); face.position.set(0, -0.04, 0.13); face.scale.set(1.05, 0.9, 0.7);
-    const muzzle = sphere(0.11, skin, 8); muzzle.position.set(0, -0.11, 0.23); muzzle.scale.set(1.25, 0.8, 0.95);
-    const mouth = box(0.12, 0.014, 0.03, dark); mouth.position.set(0, -0.155, 0.325);
-    const nostrilL = sphere(0.017, dark, 5); nostrilL.position.set(-0.035, -0.085, 0.335);
-    const nostrilR = nostrilL.clone(); nostrilR.position.x = 0.035;
-    const brow = box(0.26, 0.055, 0.09, fur); brow.position.set(0, 0.055, 0.185); brow.rotation.x = 0.25;
-    const eyeWhiteL = sphere(0.036, mat('#efe6d2', { roughness: 0.35 }), 7); eyeWhiteL.position.set(-0.068, 0.0, 0.205);
-    const eyeWhiteR = eyeWhiteL.clone(); eyeWhiteR.position.x = 0.068;
-    const pupilL = sphere(0.02, mat('#0e0a08', { roughness: 0.25 }), 6); pupilL.position.set(-0.068, 0.0, 0.236);
-    const pupilR = pupilL.clone(); pupilR.position.x = 0.068;
-    const earL = sphere(0.06, skin, 7); earL.position.set(-0.2, -0.01, -0.03); earL.scale.set(0.45, 1, 0.8);
-    const earR = earL.clone(); earR.position.x = 0.2;
-    this.head.add(skull, crest, face, muzzle, mouth, nostrilL, nostrilR, brow, eyeWhiteL, eyeWhiteR, pupilL, pupilR, earL, earR);
+    const skull = sphere(0.2, fur, 10); skull.scale.set(1.05, 1, 1.05); skull.position.y = 0.02;
+    const cap = sphere(0.16, fur, 8); cap.position.set(0, 0.12, -0.03); cap.scale.set(1.05, 0.7, 1.1);
+    const face = sphere(0.165, faceMat, 9); face.position.set(0, -0.03, 0.1); face.scale.set(1.0, 0.95, 0.75);
+    const cheekL = sphere(0.075, faceMat, 7); cheekL.position.set(-0.1, -0.08, 0.16);
+    const cheekR = cheekL.clone(); cheekR.position.x = 0.1;
+    const muzzle = sphere(0.125, lipMat, 9); muzzle.position.set(0, -0.11, 0.2); muzzle.scale.set(1.3, 0.72, 0.75);
+    const mouth = box(0.16, 0.012, 0.03, dark); mouth.position.set(0, -0.135, 0.285);
+    const nose = sphere(0.045, faceMat, 6); nose.position.set(0, -0.07, 0.27); nose.scale.set(1.3, 0.6, 0.6);
+    const nostrilL = sphere(0.014, dark, 5); nostrilL.position.set(-0.028, -0.078, 0.29);
+    const nostrilR = nostrilL.clone(); nostrilR.position.x = 0.028;
+    const brow = box(0.27, 0.06, 0.09, fur); brow.position.set(0, 0.06, 0.16); brow.rotation.x = 0.3;
+    const browSkin = box(0.24, 0.035, 0.05, faceMat); browSkin.position.set(0, 0.025, 0.2);
+    const eyeWhiteL = sphere(0.033, mat('#e9dfc8', { roughness: 0.35 }), 7); eyeWhiteL.position.set(-0.065, 0.0, 0.2);
+    const eyeWhiteR = eyeWhiteL.clone(); eyeWhiteR.position.x = 0.065;
+    const pupilL = sphere(0.02, mat('#0e0a08', { roughness: 0.25 }), 6); pupilL.position.set(-0.065, 0.0, 0.228);
+    const pupilR = pupilL.clone(); pupilR.position.x = 0.065;
+    const earL = sphere(0.075, faceMat, 8); earL.position.set(-0.225, 0.01, -0.02); earL.scale.set(0.4, 1, 0.9);
+    const earR = earL.clone(); earR.position.x = 0.225;
+    const earInL = sphere(0.045, dark, 6); earInL.position.set(-0.235, 0.005, 0.0); earInL.scale.set(0.3, 0.8, 0.7);
+    const earInR = earInL.clone(); earInR.position.x = 0.235;
+    this.head.add(skull, cap, face, cheekL, cheekR, muzzle, mouth, nose, nostrilL, nostrilR, brow, browSkin, eyeWhiteL, eyeWhiteR, pupilL, pupilR, earL, earR, earInL, earInR);
     bakeStatic(this.head, this.bakedMat);
-    this.head.position.set(0, 0.47, 0.06);
+    this.head.position.set(0, 0.52, 0.05);
     this.body.add(this.head);
 
-    // ---- Arms: long, thick upper arms; forearms end in knuckle-walking hands with fingers
-    this.armL = limb(0.105, 0.42, fur); this.armL.position.set(-0.36, 0.28, -0.02);
-    this.armR = limb(0.105, 0.42, fur); this.armR.position.set(0.36, 0.28, -0.02);
-    this.foreL = limb(0.08, 0.4, fur); this.foreL.position.y = -0.42;
-    this.foreR = limb(0.08, 0.4, fur); this.foreR.position.y = -0.42;
+    // ---- Arms: gorilla - massive upper arms, thick forearms, huge knuckle-walking hands
+    this.armL = limb(0.14, 0.4, fur); this.armL.position.set(-0.4, 0.28, -0.02);
+    this.armR = limb(0.14, 0.4, fur); this.armR.position.set(0.4, 0.28, -0.02);
+    this.foreL = limb(0.115, 0.42, fur); this.foreL.position.y = -0.4;
+    this.foreR = limb(0.115, 0.42, fur); this.foreR.position.y = -0.4;
     this.armL.add(this.foreL); this.armR.add(this.foreR);
     const makeHand = () => {
       const g = new THREE.Group();
-      const palm = box(0.13, 0.06, 0.15, skin); palm.position.set(0, 0, 0.02);
-      const knuckles = box(0.13, 0.05, 0.06, fur); knuckles.position.set(0, 0.03, -0.03);
-      for (let i = 0; i < 3; i++) {
-        const f = capsule(0.018, 0.07, skin); f.position.set(-0.04 + i * 0.04, -0.04, 0.08); f.rotation.x = 1.2;
+      const palm = box(0.17, 0.08, 0.18, skin); palm.position.set(0, 0, 0.02);
+      const knuckles = box(0.17, 0.07, 0.08, fur); knuckles.position.set(0, 0.04, -0.03);
+      for (let i = 0; i < 4; i++) {
+        const f = capsule(0.022, 0.085, skin); f.position.set(-0.06 + i * 0.04, -0.045, 0.1); f.rotation.x = 1.25;
         g.add(f);
       }
-      const thumb = capsule(0.017, 0.05, skin); thumb.position.set(0.075, -0.02, 0.03); thumb.rotation.z = -1.1;
+      const thumb = capsule(0.022, 0.06, skin); thumb.position.set(0.095, -0.02, 0.03); thumb.rotation.z = -1.1;
       g.add(palm, knuckles, thumb);
       bakeStatic(g, this.bakedMat);
-      g.position.y = -0.42;
+      g.position.y = -0.44;
       return g;
     };
     this.foreL.add(makeHand()); this.foreR.add(makeHand());
-    this.handL.position.set(0, -0.44, 0.06); this.handR.position.set(0, -0.44, 0.06);
+    this.handL.position.set(0, -0.46, 0.07); this.handR.position.set(0, -0.46, 0.07);
     this.foreL.add(this.handL); this.foreR.add(this.handR);
     this.body.add(this.armL, this.armR);
 
-    // ---- Legs: short thighs, shins with grasping feet
-    this.legL = limb(0.11, 0.34, fur); this.legL.position.set(-0.17, -0.3, 0);
-    this.legR = limb(0.11, 0.34, fur); this.legR.position.set(0.17, -0.3, 0);
-    this.shinL = limb(0.085, 0.32, fur); this.shinL.position.y = -0.34;
-    this.shinR = limb(0.085, 0.32, fur); this.shinR.position.y = -0.34;
+    // ---- Legs: gorilla - short, very thick thighs and calves, broad grasping feet
+    this.legL = limb(0.15, 0.3, fur); this.legL.position.set(-0.18, -0.34, 0);
+    this.legR = limb(0.15, 0.3, fur); this.legR.position.set(0.18, -0.34, 0);
+    this.shinL = limb(0.11, 0.3, fur); this.shinL.position.y = -0.3;
+    this.shinR = limb(0.11, 0.3, fur); this.shinR.position.y = -0.3;
     this.legL.add(this.shinL); this.legR.add(this.shinR);
     for (const shin of [this.shinL, this.shinR]) {
-      const sole = box(0.13, 0.06, 0.26, skin); sole.position.set(0, -0.34, 0.06);
-      for (let i = 0; i < 3; i++) { const toe = capsule(0.018, 0.05, skin); toe.position.set(-0.04 + i * 0.04, -0.35, 0.2); toe.rotation.x = Math.PI / 2; shin.add(toe); }
-      const bigToe = capsule(0.02, 0.05, skin); bigToe.position.set(-0.075, -0.35, 0.12); bigToe.rotation.z = 1.2; shin.add(bigToe);
-      shin.add(sole);
+      const calf = sphere(0.12, fur, 7); calf.position.set(0, -0.08, -0.03); calf.scale.set(1, 1.3, 1);
+      const sole = box(0.16, 0.07, 0.3, skin); sole.position.set(0, -0.32, 0.07);
+      for (let i = 0; i < 4; i++) { const toe = capsule(0.02, 0.05, skin); toe.position.set(-0.055 + i * 0.037, -0.33, 0.23); toe.rotation.x = Math.PI / 2; shin.add(toe); }
+      const bigToe = capsule(0.024, 0.055, skin); bigToe.position.set(-0.09, -0.33, 0.14); bigToe.rotation.z = 1.2; shin.add(bigToe);
+      shin.add(calf, sole);
       bakeStatic(shin, this.bakedMat);
     }
     this.body.add(this.legL, this.legR);
@@ -238,7 +251,7 @@ export class HominidRig {
     let bodyY = bip ? 1.05 : 0.86;
     let torsoPitch = bip ? 0.1 : 0.85; // radians forward lean
     let armL = 0, armR = 0, foreL = 0, foreR = 0, legL = 0, legR = 0, shinL = 0, shinR = 0;
-    let headPitch = bip ? 0 : -0.3;
+    let headPitch = bip ? 0 : -0.15;
     let bodyRoll = 0;
     let bodyYaw = 0;
 
