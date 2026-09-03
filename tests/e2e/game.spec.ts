@@ -495,4 +495,26 @@ test.describe('The Human Odyssey', () => {
     expect(['running', 'suspended']).toContain(r.state);
     expect(errors).toEqual([]);
   });
+  test('opening cinematic plays over the world, shows captions and can be skipped', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => !!window.game);
+    await page.evaluate(async () => { await window.game.api.newGame(42, true); });
+    await page.waitForFunction(() => window.game.state === 'intro', null, { timeout: 90_000 });
+    await expect(page.locator('.intro .bar.top')).toBeVisible();
+    const r = await page.evaluate(() => {
+      const g = window.game; const cam0 = g.camera.position.clone();
+      g.intro.seek(4); g.render(0.016); const cap1 = document.querySelector('.intro .caption').textContent; const pos4 = g.camera.position.clone();
+      g.intro.seek(26.5); g.render(0.016); const title = document.querySelector('.intro .title').textContent;
+      const above = g.camera.position.y > g.world.terrain.heightAt(g.camera.position.x, g.camera.position.z) + 2;
+      return { moved: cam0.distanceTo(pos4) > 1 || pos4.length() > 1, cap1, title, above, hudHidden: document.getElementById('hud').hidden };
+    });
+    expect(r.cap1).toContain('10,000,000');
+    expect(r.title).toBe('The Human Odyssey');
+    expect(r.above).toBe(true);
+    expect(r.hudHidden).toBe(true);
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.game.state === 'playing', null, { timeout: 15_000 });
+    await expect(page.locator('.intro')).toHaveCount(0);
+    await expect(page.locator('#hud')).toBeVisible();
+  });
 });

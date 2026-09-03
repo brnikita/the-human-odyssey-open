@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 — 2026-09-03
+
+- Opening cinematic: procedural sunrise flight over the lake, jungle and settlement with
+  captions, letterbox and a musical swell; skippable with any key.
+- Hominid redesign: chimpanzee head and arms, gorilla legs, natural knuckle-walk stance.
+- Controls: R opens the neuronal network, E eats, corrected A/D strafe, Esc closes overlays.
+- Rig viewer page (`/rig.html`) and screenshot scripts for model and intro review.
+
 ## 1.0.0 — 2026-09-02
 
 First release of The Human Odyssey, a browser survival and evolution game inspired by

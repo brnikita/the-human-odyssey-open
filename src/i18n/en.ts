@@ -1,6 +1,11 @@
 // English UI strings. Values are the exact text currently hard-coded in the UI
 // so wiring `t()` in is a mechanical replacement. `{name}` are placeholders.
 export const en: Record<string, string> = {
+  'intro.caption1': 'Africa \u00b7 10,000,000 years ago',
+  'intro.caption2': 'A world unknown. Every shadow holds fear \u2014 and knowledge.',
+  'intro.caption3': 'Your clan. Your lineage. Their odyssey begins with you.',
+  'intro.title': 'The Human Odyssey',
+  'intro.skip': 'press any key to skip',
   // ---- App / loading ----
   'app.title': 'The Human Odyssey',
   'app.loading': 'Shaping the world',

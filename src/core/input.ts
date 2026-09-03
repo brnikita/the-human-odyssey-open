@@ -98,6 +98,8 @@ export class Input {
   /** True on the frame the action was first pressed. */
   justPressed(a: Action): boolean { return this.enabled && this.pressed.has(a); }
   justReleased(a: Action): boolean { return this.released.has(a); }
+  /** True when any mapped key or mouse button was pressed this frame. */
+  anyPressed(): boolean { return this.pressed.size > 0 || this.mousePressed.some(Boolean); }
   mouseJustPressed(button: number): boolean { return this.enabled && this.mousePressed[button]; }
   mouseDown(button: number): boolean { return this.enabled && this.mouseButtons[button]; }
 

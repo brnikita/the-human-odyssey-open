@@ -14,6 +14,7 @@ import { PlayerController, type MoveModifiers } from '@/systems/controller';
 import { Hud, type HudData, type HudMarker } from '@/ui/hud';
 import { Screens } from '@/ui/screens';
 import { NeuronalUI } from '@/ui/neuronalUI';
+import { IntroCinematic } from '@/ui/intro';
 import { Panels, type PanelKind } from '@/ui/panels';
 import { ITEMS } from '@/data/items';
 import { PLANTS } from '@/data/plants';
@@ -36,7 +37,7 @@ import { updateAnimalAI, applyMovement, animalNoise, animalScent, damageAnimal, 
 import { mulberry32, hashString, type Rng } from '@/util/rng';
 import { clamp, lerp } from '@/world/noise';
 
-export type GameState = 'menu' | 'loading' | 'playing' | 'paused' | 'neuronal' | 'panel' | 'dead' | 'generation' | 'win' | 'help';
+export type GameState = 'menu' | 'loading' | 'intro' | 'playing' | 'paused' | 'neuronal' | 'panel' | 'dead' | 'generation' | 'win' | 'help';
 
 interface IntelState {
   active: boolean;
@@ -104,6 +105,7 @@ export class Game {
   private hintsShown = new Set<string>();
   private hintTimer = 0;
   private playTime = 0;
+  intro: IntroCinematic | null = null;
   private menuScene = new THREE.Scene();
   private menuSky: Sky;
   private menuTime = 0;
@@ -206,7 +208,7 @@ export class Game {
     return this.world;
   }
 
-  async newGame(seed = Date.now() % 1_000_000) {
+  async newGame(seed = Date.now() % 1_000_000, withIntro = !this.lowQuality) {
     this.state = 'loading';
     const progress = this.screens.showLoading();
     const world = await this.buildWorld(seed, progress);
@@ -225,6 +227,7 @@ export class Game {
     this.setupEntities();
     // starting knowledge: the settlement area
     exploreArea(this.lineage, this.player.position, AREA_CELL);
+    if (withIntro) { this.startIntro(); return; }
     this.beginPlay();
     this.hud.toast(t('toast.intro'), 'info');
     setTimeout(() => this.hud.toast(t('toast.pressH'), 'info'), 2500);
@@ -271,6 +274,27 @@ export class Game {
     this.controller.camYaw = Math.atan2(world.settlement.x - p.position.x, world.settlement.z - p.position.z) + Math.PI;
     this.recomputeMods();
     this.syncBabyRigs();
+  }
+
+  /** Opening cinematic over the freshly generated world; ends in gameplay. */
+  startIntro() {
+    const w = this.world!;
+    this.screens.hideAll();
+    this.hud.visible = false;
+    this.state = 'intro';
+    this.input.wantPointerLock = false;
+    this.input.clearAll();
+    this.clock.timeOfDay = 0.27;
+    const lakeCenter = new THREE.Vector3(-0.16 * WORLD_SIZE, 0, 0.02 * WORLD_SIZE);
+    this.intro = new IntroCinematic(this.uiRoot, { settlement: w.settlement.clone(), lakeCenter, heightAt: (x, z) => w.terrain.heightAt(x, z) });
+    this.intro.onFinish(() => {
+      this.intro = null;
+      this.clock.timeOfDay = 0.3;
+      this.beginPlay();
+      this.hud.toast(t('toast.intro'), 'info');
+      setTimeout(() => this.hud.toast(t('toast.pressH'), 'info'), 2500);
+    });
+    this.audio.init(); this.audio.resume(); this.audio.playIntro();
   }
 
   private beginPlay() {
@@ -515,7 +539,13 @@ export class Game {
     if (size.x !== window.innerWidth || size.y !== window.innerHeight) this.resize();
     const w = this.world;
     if (w && this.controller) {
-      if (this.state === 'playing') this.simulate(dt);
+      if (this.state === 'intro' && this.intro) {
+        if (this.input.anyPressed()) this.intro.skip();
+        else {
+          this.clock.timeOfDay = Math.min(0.3, this.clock.timeOfDay + dt * 0.0018);
+          this.idleAnimate(dt);
+        }
+      } else if (this.state === 'playing') this.simulate(dt);
       else { this.handleOverlayKeys(); this.idleAnimate(dt); }
       this.render(dt);
     } else if (w) {
@@ -597,14 +627,16 @@ export class Game {
 
   private render(dt: number) {
     const w = this.world!;
-    const focus = this.controller ? this.controller.position : w.settlement;
+    const introCam = this.state === 'intro' && this.intro ? this.intro.update(dt, this.camera) : null;
+    const focus = introCam ?? (this.controller ? this.controller.position : w.settlement);
     const sky = w.sky.update(this.clock.timeOfDay, dt, focus);
     w.rain.update(dt, w.sky.rain, this.camera, focus.y);
     const sunDir = (w.sky.sun.position.clone().sub(focus)).normalize();
     w.water.update(this.clock.elapsed, sunDir, w.sky.sun.color, w.sky.fog, sky.night);
     w.update(dt, this.clock.elapsed, focus);
     this.adaptQuality(dt);
-    if (this.controller) this.controller.updateCamera(this.camera, dt, { intel: this.intel.active, fov: 60 });
+    if (introCam) { /* camera already placed by the cinematic */ }
+    else if (this.controller) this.controller.updateCamera(this.camera, dt, { intel: this.intel.active, fov: 60 });
     else {
       this.camera.position.set(focus.x + 20, focus.y + 12, focus.z + 20);
       this.camera.lookAt(focus);
@@ -1675,7 +1707,9 @@ export class Game {
 
   /** Automation helpers (used by e2e tests). */
   readonly api = {
-    newGame: (seed?: number) => this.newGame(seed),
+    newGame: (seed?: number, withIntro = false) => this.newGame(seed, withIntro),
+    startIntro: () => this.startIntro(),
+    skipIntro: () => this.intro?.skip(),
     press: (a: Parameters<Input['press']>[0]) => this.input.press(a),
     release: (a: Parameters<Input['release']>[0]) => this.input.release(a),
     click: (b: number) => this.input.clickMouse(b),

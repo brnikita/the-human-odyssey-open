@@ -63,6 +63,8 @@ Production build: `npm run build` (output in `dist/`, serve statically).
 - **Landmarks.** Six unique places are hidden in the world: the Great Baobab, a stone
   arch, ancient bones, a hot spring that cures the cold, a dark cave and a fallen giant.
   Identify them for a big neuronal energy bonus; they then appear on the map.
+- **Opening cinematic.** A new lineage starts with a 30-second procedural flight over the
+  world at sunrise ending at your clan; any key skips it.
 - **Settings.** Graphics quality (auto adapts to your GPU), volume, mouse sensitivity
   and inverted look are in the Settings screen and persist between sessions.
 - **Generations.** At the settlement with offspring, press G. Babies grow, elders

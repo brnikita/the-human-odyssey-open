@@ -1,5 +1,10 @@
 // Russian UI strings and data translations. Keys mirror ./en.ts exactly.
 export const ru: Record<string, string> = {
+  'intro.caption1': 'Африка \u00b7 10 000 000 лет назад',
+  'intro.caption2': 'Неизведанный мир. В каждой тени \u2014 страх и знание.',
+  'intro.caption3': 'Ваш клан. Ваш род. Их одиссея начинается с вас.',
+  'intro.title': 'Одиссея человека',
+  'intro.skip': 'любая клавиша \u2014 пропустить',
   // ---- App / loading ----
   'app.title': 'Одиссея человека',
   'app.loading': 'Мир обретает форму',

@@ -145,6 +145,49 @@ export class AudioEngine {
     o.start(t); o.stop(t + n * 0.12 + 0.1);
   }
 
+  /** Slow harmonic swell for the opening cinematic (about 28 s). */
+  playIntro(duration = 28) {
+    if (!this.ctx || !this.master || this.muted) return;
+    const ctx = this.ctx;
+    const t0 = ctx.currentTime;
+    const out = ctx.createGain();
+    out.gain.value = 0.0001;
+    out.gain.exponentialRampToValueAtTime(0.16, t0 + 6);
+    out.gain.setValueAtTime(0.16, t0 + duration - 6);
+    out.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(300, t0);
+    filter.frequency.linearRampToValueAtTime(1400, t0 + duration * 0.7);
+    out.connect(filter).connect(this.master);
+    // A minor drone rising to a bright C major at the title
+    const voices: [number, number, OscillatorType][] = [[55, 55, 'sine'], [110, 130.8, 'triangle'], [164.8, 196, 'sine'], [220, 261.6, 'triangle'], [329.6, 392, 'sine']];
+    for (const [f0, f1, type] of voices) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, t0);
+      o.frequency.setValueAtTime(f0, t0 + duration * 0.78);
+      o.frequency.exponentialRampToValueAtTime(f1, t0 + duration * 0.86);
+      const g = ctx.createGain();
+      g.gain.value = 0.25;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 0.12 + Math.random() * 0.1;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 0.08;
+      lfo.connect(lfoGain).connect(g.gain);
+      o.connect(g).connect(out);
+      o.start(t0); o.stop(t0 + duration + 0.5);
+      lfo.start(t0); lfo.stop(t0 + duration + 0.5);
+    }
+    // soft heartbeat-like pulse under the title
+    for (let i = 0; i < 6; i++) {
+      const tt = t0 + duration * 0.8 + i * 0.9;
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(60, tt); o.frequency.exponentialRampToValueAtTime(40, tt + 0.25);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.25, tt); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.3);
+      o.connect(g).connect(this.master); o.start(tt); o.stop(tt + 0.35);
+    }
+  }
+
   play(name: SfxName, volume = 1, pan = 0) {
     if (!this.ctx || !this.master || this.muted) return;
     const now = performance.now();
