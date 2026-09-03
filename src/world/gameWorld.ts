@@ -262,7 +262,7 @@ export class GameWorld {
 
   // --------------------------------------------------------------- hominids
   addHominid(data: HominidData): HominidEntity {
-    const rig = new HominidRig(data.sex === 'female' ? '#4a3626' : '#33261b', data.sex === 'female' ? '#7a5a48' : '#6e5140');
+    const rig = new HominidRig(data.sex === 'female' ? '#1a1412' : '#100d0c', data.sex === 'female' ? '#7a5a48' : '#6e5140');
     rig.setStage(data.stage);
     const y = this.terrain.heightAt(data.position.x, data.position.z);
     data.position.y = y;

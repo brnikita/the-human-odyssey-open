@@ -111,7 +111,7 @@ export class HominidRig {
   private bakedMat: THREE.MeshStandardMaterial;
   private highlight = 0;
 
-  constructor(furColor = '#3a2a1e', skinColor = '#6e5140') {
+  constructor(furColor = '#100d0c', skinColor = '#6e5140') {
     this.furMat = new THREE.MeshStandardMaterial({ color: furColor, roughness: 0.95, flatShading: true });
     this.skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.8, flatShading: true });
     this.bakedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
@@ -119,7 +119,7 @@ export class HominidRig {
 
     const dark = mat('#1a1210');
     const furC = new THREE.Color(furColor);
-    const chestMat = mat(furC.clone().offsetHSL(0, -0.05, 0.08).getStyle());
+    const chestMat = mat(furC.clone().offsetHSL(0, -0.05, 0.09).getStyle());
     // chimpanzee face: bare, darker than the body skin, lighter around the mouth
     const faceMat = mat(new THREE.Color(skinColor).offsetHSL(0, -0.1, -0.14).getStyle(), { roughness: 0.75 });
     const lipMat = mat(new THREE.Color(skinColor).offsetHSL(0, -0.05, -0.02).getStyle(), { roughness: 0.75 });
@@ -218,7 +218,7 @@ export class HominidRig {
     const s = stage === 'baby' ? 0.4 : stage === 'child' ? 0.65 : stage === 'elder' ? 0.95 : 1;
     this.scaleFactor = s;
     this.root.scale.setScalar(s);
-    if (stage === 'elder') this.furMat.color.set('#5a4a3e');
+    if (stage === 'elder') { this.furMat.color.set('#3a3432'); this.bakedMat.color.set('#c9c2bd'); }
   }
 
   setHighlight(v: number) {
