@@ -400,8 +400,8 @@ test.describe('The Human Odyssey', () => {
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     await startGame(page);
     const r = await run(page, `
-      api.setTime(0.95); await sleep(600); const night = g.world.sky.sun.intensity;
-      api.setTime(0.5); await sleep(600); const day = g.world.sky.sun.intensity;
+      api.setTime(0.95); g.render(0.016); const night = g.world.sky.sun.intensity;
+      api.setTime(0.5); g.world.sky.rain = 0; g.render(0.016); const day = g.world.sky.sun.intensity;
       const info = g.renderer.info.render;
       return { night, day, calls: info.calls, tris: info.triangles };
     `) as any;
